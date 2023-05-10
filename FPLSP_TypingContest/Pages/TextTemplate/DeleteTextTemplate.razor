@@ -1,0 +1,72 @@
+﻿@using FPLSP_TypingContest.Repositories.Interfaces
+
+
+@if (ShowConfirmation)
+{
+    <div class="modal fade show d-block" id="exampleModal" tabindex="-1" role="dialog">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="exampleModalLabel">@ConfirmationTitle</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close"
+                        @onclick="() => OnConfirmationChange(false)">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    @ConfirmationMessage
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal"
+                        @onclick="() => OnConfirmationChange(false)">
+                        Cancel
+                    </button>
+                    <button type="button" class="btn btn-danger"
+                        @onclick="() => OnConfirmationChange(true)">
+                        Xác nhận
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+}
+
+@code {
+    [Parameter] public Guid id{ get; set; }
+
+    [Parameter]
+    public bool ShowConfirmation { get; set; }
+
+    [Parameter]
+    public string ConfirmationTitle { get; set; } = "Xác nhận";
+
+    [Parameter]
+    public string ConfirmationMessage { get; set; } = "Xác nhận xóa";
+
+    [Parameter]
+    public EventCallback<bool> ConfirmationChanged { get; set; }
+
+    [Inject] ITextTemplateRespositories _repo{ get; set; }
+    [Inject] ISnackbar SnackbarService { get; set; }
+
+
+    public void show()
+    {
+        ShowConfirmation = true;
+        StateHasChanged();
+    }
+    protected async Task OnConfirmationChange(bool value)
+    {
+
+        if (value)
+        {
+            await _repo.RemoveAsync(id, Guid.Parse("a697fd56-c37b-498c-a450-bab6fb89e3fd"));
+            SnackbarService.Add<MudChip>(new Dictionary<string, object>() {
+                { "Text", "Xóa thành công" },
+                { "Color", Color.Success }
+            });
+        }
+        await ConfirmationChanged.InvokeAsync(value);
+    }
+}

@@ -1,0 +1,96 @@
+﻿@page "/contest/detail"
+@using FPLSP_TypingContest.Server.BLL.ViewModels.Contest;
+@inject FPLSP_TypingContest.Repositories.Interfaces.IContestRespositories _Repositories;
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@Icons.Material.Filled.Edit" Class="mr-3" /> @MudDialog?.Title
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+
+
+        <MudCard Outlined="true">
+            <MudCardContent class="d-flex">
+                <MudGrid>
+
+
+                    <MudItem xs="12" sm="6">
+                        
+                            <MudImage ObjectFit="ObjectFit.Cover" Width="200" Height="200"
+                                      Src="@contestVM.ImageUrl"
+                                      Alt="Thumbnail Image" Elevation="25"
+                                      Class="rounded-lg mud-width-full m-auto" />
+
+                    </MudItem>
+
+                    <MudItem xs="12" sm="6">
+
+
+                        <MudStack Justify="Justify.SpaceBetween" class="mud-height-full"
+                                  AlignItems="AlignItems.Stretch" Row="false">
+                            <MudItem>
+                                <MudText Typo="Typo.h5">@contestVM.Name</MudText>
+                                <MudText Typo="Typo.body2">@contestVM.Description</MudText>
+                            </MudItem>
+
+                            <MudItem>
+
+                                <MudText Class="mt-3" Typo="Typo.body2">Thời gian bắt đầu: <b>@contestVM.StartTime</b> </MudText>
+
+
+                                <MudText Class="mt-3" Typo="Typo.body2">Thời gian kết thúc: <b>@contestVM.EndTime</b></MudText>
+
+                            </MudItem>
+
+                        </MudStack>
+
+
+
+
+                    </MudItem>
+                </MudGrid>
+
+
+            </MudCardContent>
+            <MudCardActions>
+                <MudButton style="margin-left:auto;" Variant="Variant.Text" Color="Color.Primary">Tham gia</MudButton>
+            </MudCardActions>
+        </MudCard>
+
+
+    </DialogContent>
+</MudDialog>
+
+
+@code {
+
+    #region Parameter
+    [CascadingParameter] MudDialogInstance? MudDialog { get; set; }
+
+    [Parameter]
+    public Guid IdContest { get; set; }
+
+    #endregion
+
+    
+    #region Propreties
+    bool success;
+    private ContestVM contestVM = new ContestVM();
+
+    #endregion
+
+    protected override async Task OnInitializedAsync()
+    {
+
+        contestVM = await _Repositories.GetByIdAsync(IdContest);
+
+    }
+
+
+    private void Cancel()
+    {
+        MudDialog?.Cancel();
+    }
+}

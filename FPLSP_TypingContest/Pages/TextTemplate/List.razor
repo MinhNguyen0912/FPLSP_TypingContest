@@ -1,0 +1,161 @@
+﻿@page "/TextTemplate/List"
+@using FPLSP_TypingContest.Server.BLL.ViewModels.TextTemplate
+@using FPLSP_TypingContest.Server.BLL.ViewModels.LevelModel
+@using FPLSP_TypingContest.Repositories.Interfaces
+
+<div class="border_box-shadow">
+    <div class="row">
+        <div class="col-8">
+            <h3>Danh sách mẫu văn bản</h3>
+            <MudChip Style="width:100px; width:100px" Icon="@Icons.Material.Filled.Add" Color="Color.Primary" OnClick="@ToggleOpenCreate">Thêm</MudChip>
+            <MudChip Style="width:100px; width:100px" Icon="@Icons.Material.Filled.Add" Color="Color.Dark" OnClick="@ToggleOpenSelect">Chọn</MudChip>
+        </div>
+        <div class="col-4">
+            @*Nơi gọi tới Component Search*@
+            <Search OnSearch="Search" Title="Tìm kiếm theo độ khó"></Search>
+        </div>
+    </div>
+    <br>
+    @if (_textTemplates!=null&&_levels!=null)
+    {
+        <MudTable Items="@_textTemplates" Hover="true">
+            <HeaderContent>
+                <MudTh>STT</MudTh>
+                <MudTh>Tên mẫu văn bản</MudTh>
+                <MudTh>Nội dung</MudTh>
+                <MudTh>Độ khó</MudTh>
+                <MudTh>Chức năng</MudTh>
+            </HeaderContent>
+        
+
+
+            <RowTemplate>
+                <MudTd DataLabel="">@(_textTemplates.IndexOf(context)+1)</MudTd>
+                <MudTd DataLabel="">@context.Title</MudTd>
+                <MudTd DataLabel="">@(context.Content.Length>20?$"{context.Content.Substring(0,20)}...":context.Content)</MudTd>
+                <MudTd DataLabel="">@_levels.FirstOrDefault(p=>p.Id==context.IdLevel).Name</MudTd>
+                <MudTd DataLabel="">
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="()=>OpenUpdate(context.Id)">Sửa</MudButton>
+                        <MudButton Variant="Variant.Filled" Color="Color.Secondary" OnClick="()=>OpenDelete(context.Id)">Xóa</MudButton>
+                        <MudButton Variant="Variant.Filled" OnClick="()=>OpenDetail(context.Id)">Chi tiết</MudButton>
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+
+    }
+    else
+    {
+        <Loading></Loading>
+    }
+</div>
+<MudPopover Style="background-color: rgba(255, 255, 255, 0.8); width: 100vw; height: 100vh; position: fixed; " Open="@_isOpenUpdate">
+    <div class="d-flex justify-center align-center w-100 h-100">
+        <UpdateTextTemplate _idText="@_idText" Close="CloseUpdate"></UpdateTextTemplate>
+    </div>
+</MudPopover>
+<MudPopover Style="background-color: rgba(255, 255, 255, 0.8); width: 100vw; height: 100vh; position: fixed; "  Open="@_isOpenCreate">
+    <div class="d-flex justify-center align-center w-100 h-100">
+        <AddTextTemplate Close="ToggleOpenCreate"></AddTextTemplate>
+    </div>
+</MudPopover>
+<MudPopover Style="background-color: rgba(255, 255, 255, 0.8); width: 100vw; height: 100vh; position: fixed; " Open="@_isOpenSelect">
+    <div class="d-flex justify-center align-center w-100 h-100">
+        <SelectTextTemplate Select="OnSelectedTempl" Close="ToggleOpenSelect"></SelectTextTemplate>
+    </div>
+</MudPopover>
+<MudPopover Style="background-color: rgba(255, 255, 255, 0.8); width: 100vw; height: 100vh; position: fixed; " Open="@_isOpenDetail">
+    <div class="d-flex justify-center align-center w-100 h-100">
+        <DetailTextTemplate _idText="@_idText" Close="CloseDetail"></DetailTextTemplate>
+    </div>
+</MudPopover>
+<DeleteTextTemplate ConfirmationChanged="OnDeleted" id="_idText" ShowConfirmation="@_isOpenDelete"></DeleteTextTemplate>
+
+@code {
+    [Inject] private ITextTemplateRespositories _reposText{ get; set; }
+    [Inject] private ILevelRespositories _reposLevel{ get; set; }
+    List<TextTemplateVM> _textTemplates;
+    List<LevelVM> _levels;
+    private Guid _idText{ get; set; }
+
+    int stt = 0;
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+
+    }
+    private async Task LoadData()
+    {
+        _textTemplates = await _reposText.GetAllActiveAsync();
+        _levels = await _reposLevel.GetAllActiveAsync();
+
+    }
+    public bool _isOpenCreate;
+    public bool _isOpenUpdate;
+    public bool _isOpenDetail;
+    public bool _isOpenDelete;
+    public bool _isOpenSelect;
+
+    public async Task ToggleOpenCreate()
+    {
+        if (_isOpenCreate)
+        {
+            _isOpenCreate = false;
+            await LoadData();
+        }
+        else
+            _isOpenCreate = true;
+    }
+
+    public void ToggleOpenSelect()
+    {
+        if (_isOpenSelect)
+        {
+            _isOpenSelect = false;
+        }
+        else
+            _isOpenSelect = true;
+    }
+
+    public async Task OnSelectedTempl(Guid id)
+    {
+        var a = await _reposText.GetByIdAsync(id);
+        var b = a.Content;
+    }
+
+    public async Task CloseUpdate()
+    {
+        _isOpenUpdate = false;
+        await LoadData();
+    }
+    public void OpenUpdate(Guid id)
+    {
+
+        _isOpenUpdate = true;
+        _idText = id;
+    }
+    public void CloseDetail()
+    {
+        _isOpenDetail = false;
+    }
+    public void OpenDetail(Guid id)
+    {
+
+        _isOpenDetail = true;
+        _idText = id;
+    }
+    public void OpenDelete(Guid id)
+    {
+        _isOpenDelete = true;
+        _idText = id;
+    }
+    public async Task OnDeleted(bool value)
+    {
+        _isOpenDelete = false;
+        await LoadData();
+    }
+    public async Task Search(string s)
+    {
+        List<TextTemplateVM> listText = await _reposText.GetAllActiveAsync();
+        _textTemplates = listText.Where(p => p.Title.Contains(s)||p.Content.Contains(s)).ToList();
+    }
+}

@@ -1,0 +1,144 @@
+﻿@page "/ListTrainingFacility"
+@using FPLSP_TypingContest.Repositories.Interfaces;
+@using FPLSP_TypingContest.Server.BLL.ViewModels.TranningFacility;
+@using Microsoft.AspNetCore.Identity;
+@using Blazored.Toast
+@using Blazored.Toast.Services
+@inject IToastService _IToastService
+@inject IDialogService _diagService;
+@inject NavigationManager _navigation;
+@inject ISnackbar Snackbar
+
+@if (_TrainingFacilitys != null)
+{
+                <div class="row">
+                    <div class="col-8"><h3>Danh sách Cơ Sở Đào Tạo </h3>
+                        <MudChip Style="width:100px; width:100px" Icon="@Icons.Material.Filled.Add" Color="Color.Primary" OnClick="OpenAdd">Thêm</MudChip>
+                    </div>
+
+                    <div class="col-4">
+            @*Nơi gọi tới Component Search*@
+                        <Search Title="Tìm kiếm theo Tên" OnSearch="SearchTask"></Search>
+                    </div>
+
+                </div>
+
+                    <MudTable Items="@_TrainingFacilitys" Hover="true" SortLabel="Sort By">
+                    <HeaderContent>
+                             <MudTh>STT</MudTh>
+                        <MudTh><MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<TrainingFacilityVM, object>(x=>x.Name)">Name</MudTableSortLabel></MudTh>
+                            <MudTh><MudTableSortLabel SortBy="new Func<TrainingFacilityVM, object>(x=>x.Address)">Address</MudTableSortLabel></MudTh>
+                            <MudTh><MudTableSortLabel SortBy="new Func<TrainingFacilityVM, object>(x=>x.Email)">Email</MudTableSortLabel></MudTh>
+                          <MudTh><MudTableSortLabel SortBy="new Func<TrainingFacilityVM, object>(x=>x.PhoneNumber)">PhoneNumber</MudTableSortLabel></MudTh>
+                              <MudTh>Chức Năng</MudTh>
+                    </HeaderContent>
+                    <RowTemplate>
+                                <MudTd DataLabel="STT">@(_TrainingFacilitys.IndexOf(context)+1)</MudTd>
+                        <MudTd DataLabel="Name">@context.Name</MudTd>
+                            <MudTd DataLabel="Address">@context.Address</MudTd>
+                            <MudTd DataLabel="Email">@context.Email</MudTd>
+                                <MudTd DataLabel="PhoneNumber">@context.PhoneNumber</MudTd>
+                                    <MudTd>
+                                  <MudIconButton Style="color:green" Size="@Size.Medium" Icon="@Icons.Material.Filled.Edit" OnClick="()=>OnDetail(context.Id)"/>
+                                  <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" OnClick="@(() => OnDeletes(context.Id))"></MudIconButton>
+                                </MudTd>
+                    </RowTemplate>
+                    <PagerContent>
+                        <MudTablePager PageSizeOptions="new int[]{50, 100}" />
+                    </PagerContent>
+                </MudTable>
+
+}
+else
+{
+                <Loading></Loading>
+}
+                <MudPopover Open = "closeAdd">
+              <AddNew CreateNew="OnCloesAdd"></AddNew>
+                </MudPopover>  
+
+                 <MudPopover Open = "closeDetail">
+              <Detail Id="@Id" detail="OnDetailClose"></Detail>
+                </MudPopover>  
+
+              <Confirm @ref = "confirmForm" ConfirmationChanged="OnButtonClicked"
+              ConfirmationTitle="Xóa Cơ Sở Đào Tạo"
+              ConfirmationMessage="Bạn Có Chắc Muốn Xóa Cơ Sở Đào Tạo Này Không?"
+              ></Confirm>
+
+@code {
+
+    private bool closeAdd = false;
+    private bool closeDetail = false;
+
+    [Inject]
+    public ITrainingFacilitysRepositories _TrainingFacilitysRepositories { get; set; }
+    private int stt = 0;
+    private string textSearch = "";
+    private TrainingFacilityVM trainingFacilityVM = new TrainingFacilityVM();
+    private Guid Id;
+    private List<TrainingFacilityVM> _TrainingFacilitys;
+    public TrainingFacilityUpdateVM trainingFacilityUpdateVM = new TrainingFacilityUpdateVM();
+    private Confirm confirmForm { set; get; }
+
+    private async Task LoadData()
+    {
+        _TrainingFacilitys = await _TrainingFacilitysRepositories.GetAllActiveAsync();
+    }
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private void OpenAdd()
+    {
+        closeAdd = true;
+    }
+    private async Task OnCloesAdd()
+    {
+        closeAdd = false;
+        await LoadData();
+    }
+    private async Task OnDetailClose()
+    {
+        closeDetail = false;
+        await LoadData();
+    }
+    public void OnDetail(Guid id)
+    {
+        closeDetail = true;
+        Id = id;
+    }
+    public async void OnDeletes(Guid id)
+    {
+        Id = id;
+        trainingFacilityVM = await _TrainingFacilitysRepositories.GetByIdAsync(Id);
+
+        confirmForm.show();
+    }
+    
+    private async Task OnButtonClicked(bool value)
+    {
+        if (value)
+        {
+            var result = await _TrainingFacilitysRepositories.RemoveAsync(Id, Guid.Parse("835C0ED0-6835-498C-83F1-8387E3F92402"));
+            if (result)
+            {
+                _IToastService.ShowSuccess("successfully");
+            }
+            else
+            {
+                _IToastService.ShowError("Error");
+            }
+        }
+        await LoadData();
+    }
+    public async Task SearchTask(string text)
+    {
+        stt = 0;
+        var TrainingFacilitys = await _TrainingFacilitysRepositories.GetAllActiveAsync();
+        _TrainingFacilitys = TrainingFacilitys.
+        Where(c => c.Name.Contains(text) || c.PhoneNumber.Contains(text) || c.Address.Contains(text) || c.Email.Contains(text)).ToList();
+    } 
+}
+

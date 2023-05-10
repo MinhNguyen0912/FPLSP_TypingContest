@@ -1,0 +1,189 @@
+﻿@page "/contest/list"
+@using FPLSP_TypingContest.Server.BLL.ViewModels.Contest;
+@using Microsoft.AspNetCore.Identity;
+@inject FPLSP_TypingContest.Repositories.Interfaces.IContestRespositories _Repositories;
+@inject ISnackbar Snackbar;
+@inject IDialogService DialogService;
+
+@if (_lstVM != null)
+{
+    <div class="row mb-3">
+        <div class="col-8">
+            <h3>Danh sách Cuộc Thi </h3>
+            <MudButton Variant="Variant.Filled"  Class="px-3"
+            OnClick="() => OpenAddNewDialog(Guid.Empty)"
+                   Color="Color.Primary">
+                <MudIcon Icon="@Icons.Material.Filled.Add"></MudIcon>
+                    Thêm mới</MudButton>
+        </div>
+
+        <div class="col-4">
+            @*Nơi gọi tới Component Search*@
+            <Search Title="Tìm kiếm theo Tên" OnSearch="SearchTask"></Search>
+        </div>
+
+    </div>
+
+    <MudTable Items="@_lstVM" Hover="true" SortLabel="Sort By">
+        <HeaderContent>
+            <MudTh>STT</MudTh>
+            <MudTh><MudTableSortLabel SortBy="new Func<ContestVM, object>(x=>x.Name ?? string.Empty)">Name</MudTableSortLabel></MudTh>
+            <MudTh>Image</MudTh>
+            <MudTh><MudTableSortLabel SortBy="new Func<ContestVM, object>(x=>x.StartTime)">StartTime</MudTableSortLabel></MudTh>
+            <MudTh><MudTableSortLabel SortBy="new Func<ContestVM, object>(x=>x.EndTime)">EndTime</MudTableSortLabel></MudTh>
+            <MudTh><MudTableSortLabel InitialDirection="SortDirection.Ascending" SortBy="new Func<ContestVM, object>(x=>x.Status)">Status</MudTableSortLabel></MudTh>
+            <MudTh>Chức Năng</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="STT">@(_lstVM.IndexOf(context) + 1)</MudTd>
+                <MudTd DataLabel="Name">@context.Name</MudTd>
+                <MudTd DataLabel="Image">
+                    <MudImage ObjectFit="ObjectFit.Fill" Src="@context.ImageUrl" Width="32" Height="32"> </MudImage>
+                </MudTd>
+                <MudTd DataLabel="StartTime">@context.StartTime</MudTd>
+                <MudTd DataLabel="EndTime">@context.EndTime</MudTd>
+                <MudTd DataLabel="Status">@context.Status</MudTd>
+                <MudTd>
+
+                    <MudIconButton Style="color:black" Size="@Size.Medium"
+                           Icon="@Icons.Material.Filled.DensityMedium"  OnClick="() => OpenDetailDialog(context.Id)"/>
+
+                    <MudIconButton Style="color:green" Size="@Size.Medium"
+                           Icon="@Icons.Material.Filled.Edit" OnClick="() => OpenAddNewDialog(context.Id)" />
+
+                    <MudIconButton Style="color:white" Color="Color.Error" Size="@Size.Medium"
+                           Icon="@Icons.Material.Filled.Delete" OnClick="()=>OpenDeleteDialogMessage(context.Id)" />
+
+                </MudTd>
+            </RowTemplate>
+            <PagerContent>
+                <MudTablePager PageSizeOptions="new int[]{50, 100}" />
+            </PagerContent>
+        </MudTable>
+
+}
+else
+{
+    <Loading></Loading>
+}
+
+
+
+@code {
+    [Parameter]
+    public Guid IdOrganizer { get; set; } = Guid.Parse("F98AD224-3487-4A46-B98F-D0EA648BBE7D");
+
+    private int stt = 0;
+    private ContestVM objVM = new ContestVM();
+    private List<ContestVM>? _lstVM;
+
+
+    private async Task LoadData()
+    {
+        _lstVM = await _Repositories.GetAllActiveAsync();
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    public async Task SearchTask(string text)
+    {
+        stt = 0;
+        var lstVMforSearch = await _Repositories.GetAllAsync();
+        _lstVM = lstVMforSearch.Where(c => (c.Name ?? string.Empty).Contains(text)).ToList();
+    }
+
+    private DialogOptions dialogOptions = new() { CloseButton = true, DisableBackdropClick = true, MaxWidth = MaxWidth.Medium, FullWidth = true };
+
+    private async Task OpenAddNewDialog(Guid id)
+    {
+        var parameters = new DialogParameters();
+        string tilteString = "";
+        string snackbarMessage = "";
+        if (id == Guid.Empty)
+        {
+            tilteString = "Thêm mới cuộc thi";
+            snackbarMessage = "Thêm mới";
+        }
+        else
+        {
+            tilteString = "Chỉnh sửa cuộc thi";
+            snackbarMessage = "Chỉnh sửa";
+        }
+
+        parameters.Add("IdContest", id);
+        parameters.Add("IdOrganizer", IdOrganizer);
+
+
+        var result = await DialogService.Show<AddorEdit>(tilteString, parameters, dialogOptions).Result;
+        if (!result.Canceled)
+        {
+            var success = result.Data as bool?;
+            if (success == true)
+            {
+                Snackbar.Add(snackbarMessage + " thành công!", Severity.Success);
+                await LoadData();
+            }
+            else
+            {
+                Snackbar.Add(snackbarMessage + " thất bại!", Severity.Error);
+            }
+        }
+    }
+
+    private async Task OpenDetailDialog(Guid id)
+    {
+        var parameters = new DialogParameters();
+        parameters.Add("IdContest", id);
+        var result = await DialogService.Show<Detail>("Chi tiết cuộc thi", parameters, dialogOptions).Result;
+
+        if (!result.Canceled)
+        {
+            var success = result.Data as bool?;
+            if (success == true)
+            {
+                Snackbar.Add("Adding success", Severity.Success);
+            }
+            else
+            {
+                Snackbar.Add("Adding failure", Severity.Error);
+            }
+        }
+    }
+
+    private async void OpenDeleteDialogMessage(Guid id)
+    {
+        bool? result = await DialogService.ShowMessageBox(
+            "Cảnh báo",
+            "Khi xóa sẽ không thể quay lại!",
+            yesText: "Xóa bỏ!", noText: "" , cancelText: "Hủy bỏ", 
+            new DialogOptions()
+            {
+                    CloseButton = true,
+                    DisableBackdropClick = true,
+                    MaxWidth = MaxWidth.Small,
+                    FullWidth = true
+            }
+        );
+
+        if(result != null)
+        {
+            result = await _Repositories.RemoveAsync(id, Guid.Parse("835C0ED0-6835-498C-83F1-8387E3F92402"));
+
+            if (result ?? false)
+            {
+                Snackbar.Add("Xóa bỏ thành công!", Severity.Success);
+                await LoadData();
+            }
+            else
+            {
+                Snackbar.Add("Xóa bỏ thất bại!", Severity.Error);
+            }
+        }
+
+    }
+
+}
+

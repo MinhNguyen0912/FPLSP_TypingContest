@@ -1,0 +1,89 @@
+﻿@using FPLSP_TypingContest.Server.BLL.ViewModels.TextTemplate
+@using FPLSP_TypingContest.Repositories.Interfaces
+@using FPLSP_TypingContest.Server.BLL.ViewModels.LevelModel
+
+
+@if (_levels != null)
+{
+
+            <MudPaper Class="px-5 pt-5 pb-4 w-50" Elevation="3">
+
+                @*Tiêu đề*@
+                <div class="d-flex align-items-center mb-2">
+                    <MudText Typo="Typo.h5" Class="mr-auto" Style="font-weight: 500;">Tạo mẫu văn bản</MudText>
+            <MudChip OnClick="OnClickCloseBtn" Icon="@Icons.Material.Filled.Close" Color="Color.Error">Đóng</MudChip>
+                </div>
+
+                @*Nội dung thân*@
+                <div class="row" style="overflow:auto; max-height: 50vh;">
+                    <MudForm Model="@vm" @ref="form" @bind-IsValid="@success" @bind-Errors="@errors" ReadOnly="false">
+                <MudTextField @bind-Value="vm.Title" T="string" Label="Tiêu đề" Required="true" RequiredError="Tiêu đề không được để trống!" ReadOnly="false" />
+                <MudTextField @bind-Value="vm.Content" T="string" Label="Nội dung" Required="true" RequiredError="Nội dung không được để trống!" ReadOnly="false" />
+                <MudSelect Required="true" RequiredError="Vui lòng chọn độ khó!" @bind-Value="vm.LevelName" T="string" Label="Độ khó" AnchorOrigin="Origin.BottomCenter">
+                            @foreach (var item in _levels)
+                            {
+                                <MudSelectItem Value="@(item.Name)" />
+
+                            }
+                        </MudSelect>
+                    </MudForm>
+                </div>
+
+                <div style="float: right;">
+            <MudButton OnClick="OnClickCloseBtn">Hủy</MudButton>
+            <MudButton OnClick="Add" Disabled="@(!success)" Color="Color.Primary">Tạo</MudButton>
+                </div>
+                @*Nội dung thân - End*@
+
+
+            </MudPaper>
+
+}
+
+@code {
+    [Inject] private ITextTemplateRespositories TextRepo { get; set; }
+    [Inject] private ILevelRespositories LevelRepo { get; set; }
+    [Inject] ISnackbar SnackbarService{ get; set; }
+
+    List<LevelVM> _levels{ get; set; }
+    TextTemplateCreateVM vm = new TextTemplateCreateVM();
+    [Parameter]
+    public EventCallback Close{ get; set; }
+    private async Task Add()
+    {
+
+        vm.LevelId = _levels.FirstOrDefault(p => p.Name == vm.LevelName).Id;
+        vm.CreatedBy = Guid.Parse("a697fd56-c37b-498c-a450-bab6fb89e3fd");
+
+        var result = await TextRepo.AddAsync(vm);
+        if (result)
+        {
+            SnackbarService.Add<MudChip>(new Dictionary<string, object>() {
+                { "Text", "Tạo thành công" },
+                { "Color", Color.Success }
+            });
+        }
+        else
+        {
+            SnackbarService.Add<MudChip>(new Dictionary<string, object>() {
+                { "Text", "Tạo không thành công" },
+                { "Color", Color.Error }
+            });
+        }
+
+    }
+    private void OnClickCloseBtn()
+    {
+        Close.InvokeAsync();
+    }
+    protected override async Task OnInitializedAsync()
+    {
+        _levels = await LevelRepo.GetAllActiveAsync();
+    }
+
+    /////////////////////
+    bool success;
+    string[] errors = { };
+    MudTextField<string> pwField1;
+    MudForm form;
+}

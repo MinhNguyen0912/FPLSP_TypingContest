@@ -1,0 +1,51 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>	 
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="Pages\TypingPage\**" />
+    <Content Remove="Pages\TypingPage\**" />
+    <EmbeddedResource Remove="Pages\TypingPage\**" />
+    <None Remove="Pages\TypingPage\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Remove="Components\Error.razor.css" />
+    <None Remove="Components\Loading.razor.css" />
+    <None Remove="Pages\Login.razor.css" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Components\Error.razor.css" />
+    <Content Include="Components\Loading.razor.css" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="wwwroot\js\" />
+    <PackageReference Include="Blazored.Toast" Version="4.1.0" />
+	<PackageReference Include="Microsoft.AspNetCore.Authentication.Cookies" Version="2.2.0" />
+	<PackageReference Include="Microsoft.AspNetCore.Authentication.Google" Version="6.0.14" />
+	<PackageReference Include="Microsoft.AspNetCore.Authorization" Version="6.0.15" />
+	<PackageReference Include="Microsoft.AspNetCore.Components.Web" Version="6.0.15" />
+	<PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="6.0.14" />
+	<PackageReference Include="Microsoft.Extensions.Identity.Core" Version="6.0.15" />
+	<PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="6.0.0" />
+	<PackageReference Include="MudBlazor" Version="6.2.0" />
+
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\FPLSP_TypingContest.Server.BLL\FPLSP_TypingContest.Server.BLL.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\FPLSP_TypingContest.Server.API\FPLSP_TypingContest.Server.API.csproj" />
+    <ProjectReference Include="..\FPLSP_TypingContest.Server.BLL\FPLSP_TypingContest.Server.BLL.csproj" />
+    <ProjectReference Include="..\FPLSP_TypingContest.Server.DAL\FPLSP_TypingContest.Server.DAL.csproj" />
+  </ItemGroup>
+
+</Project>

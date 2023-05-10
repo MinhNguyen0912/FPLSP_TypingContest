@@ -1,0 +1,53 @@
+﻿@using Blazored.Toast.Configuration;
+@using FPLSP_TypingContest.Server.BLL.ViewModels.Login;
+@using Server.BLL.Services.Implements;
+@inherits LayoutComponentBase
+@inject IHttpContextAccessor HttpContextAccessor
+<PageTitle>FPLSP_TypingContest</PageTitle>
+@*Phải cài đặt các giá trị của BlazoredToasts*@
+<BlazoredToasts Position="ToastPosition.BottomRight" Timeout="5" IconType="IconType.FontAwesome" ErrorIcon="fa fa-times"
+                InfoIcon="fa fa-info" SuccessIcon="fa fa-check" WarningIcon="fa fa-exclamation" />
+<MudThemeProvider />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<div class="page">
+    <div>
+        <NavMenu />
+    </div>
+
+    <main>
+        <header class="header" id="header" style="padding: 0;">
+            <nav class="navbar navbar-light text-right row">
+                <div class="col-3" style="text-align: right;">
+                    <img style="padding: 0; border-radius: 50px; width: 50px;" src="@userinfo.Picture" />
+                </div>
+                @*<div class="col-9" style="">
+                    <b class="text-truncate">@userinfo.GivenName</b>
+                    <div style="font-size: x-small;"> @userinfo.Email</div>
+                    @foreach (var role in roles)
+                    {
+                        <span class="badge text-bg-secondary" style="font-size: 0.55em;">@role</span>
+                    }
+                </div>*@
+            </nav>
+        </header>
+
+        <article class="content px-4">
+            @Body
+        </article>
+    </main>
+</div>
+@code {
+    private GoogleUserInfoVM userinfo = new();
+    private List<string> roles = new();
+
+    //protected async override Task OnInitializedAsync()
+    //{
+    //    userinfo = HttpContextAccessor.HttpContext.Session.GetObject<GoogleUserInfoVM>("UserLogin");
+
+    //    //Lấy được quyền của người dùng từ Claims
+    //    roles = HttpContextAccessor.HttpContext.User.Claims.Select(c => c.Value).ToList();
+    //}
+}
+

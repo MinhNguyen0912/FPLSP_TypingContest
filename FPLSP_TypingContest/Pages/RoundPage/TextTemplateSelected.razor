@@ -1,0 +1,81 @@
+﻿@using FPLSP_TypingContest.Repositories.Interfaces;
+@using FPLSP_TypingContest.Server.BLL.ViewModels.LevelModel;
+@using FPLSP_TypingContest.Server.BLL.ViewModels.TextTemplate;
+
+@if (_levels != null)
+{
+    <MudDialog>
+        <DialogContent>
+            <MudContainer Style="overflow-y: scroll">
+                <div class="d-flex align-items-center mb-2">
+                    <MudText Typo="Typo.h5" Class="mr-auto" Style="font-weight: 500;">Chọn mẫu văn bản</MudText>
+                </div>
+                <div class="row" style="overflow:auto; max-height: 50vh;">
+                    <MudSelect Value="_levelName" ValueChanged="value=>ShowTextTemplate(value)" T="string" Label="Mẫu văn bản" AnchorOrigin="Origin.BottomCenter">
+                        @foreach (var item in _levels)
+                        {
+                            <MudSelectItem Value="@item.Name">@item.Name</MudSelectItem>
+                        }
+                    </MudSelect>
+                    @if (_textTemplates != null)
+                    {
+                        int i = 1;
+                        @foreach (var item in _textTemplates)
+                        {
+                            <div class="d-flex align-items-center mb-2">
+                                <MudTextField @bind-Value="item.Content" Label=@($"Mẫu văn bản {i}") ReadOnly="true" Variant="Variant.Text" Lines="3" Class="mr-auto" />
+                                <MudChip OnClick="@(() => OnSelectedTemplate(item.Id))" Color="Color.Primary">Chọn</MudChip>
+                            </div>
+                            i++;
+                        }
+                    }
+                </div>
+            </MudContainer>
+        </DialogContent>
+        <DialogActions>
+            <MudButton OnClick="Cancel">Cancel</MudButton>
+        </DialogActions>
+    </MudDialog>
+}
+@code {
+    [CascadingParameter] MudDialogInstance MudDialog { get; set; }
+    [Inject] private ITextTemplateRespositories TextRepo { get; set; }
+    [Inject] private ILevelRespositories LevelRepo { get; set; }
+
+    private List<LevelVM> _levels;
+    private List<TextTemplateVM> _textTemplates;
+    private string _levelName;
+    private Guid _selectedTemplateId;
+    [Parameter]
+    public Action<Guid> OnTemplateSelected { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        _levels = await LevelRepo.GetAllActiveAsync();
+    }
+    private async Task ShowTextTemplate(string levelName)
+    {
+        _levelName = levelName;
+
+        var selectedLevel = _levels.FirstOrDefault(l => l.Name == levelName);
+        if (selectedLevel != null)
+        {
+            _textTemplates = await TextRepo.GetAllByLevelIdAsync(selectedLevel.Id);
+        }
+        else
+        {
+            _textTemplates = null;
+        }
+    }
+    private void OnSelectedTemplate(Guid id)
+    {
+        _selectedTemplateId = id;
+        OnTemplateSelected?.Invoke(_selectedTemplateId);
+        MudDialog.Close(DialogResult.Ok(true));
+    }
+    //hủy
+    private void Cancel()
+    {
+        MudDialog.Cancel();
+    }
+}

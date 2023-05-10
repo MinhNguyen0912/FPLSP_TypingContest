@@ -1,0 +1,61 @@
+﻿@page "/RoundPage/Detail/{idRound}"
+@using Blazored.Toast.Services;
+@using FPLSP_TypingContest.Repositories.Interfaces;
+@using FPLSP_TypingContest.Server.BLL.ViewModel.Round;
+@using FPLSP_TypingContest.Server.BLL.ViewModels.Round;
+@using FPLSP_TypingContest.Server.DAL.Entities;
+@inject IToastService _IToastService
+@inject ISnackbar Snackbar
+
+@if (roundVM != null)
+{
+    <MudDialog>
+        <DialogContent>
+            <MudContainer Style="overflow-y: scroll">
+                <MudTextField T="string" @bind-Value="roundVM.Name" Label="Tên vòng thi"></MudTextField>
+                <MudStack Row="true">
+                    <MudTextField T="DateTime?" Format="s" @bind-Value="roundVM.StartTime" Label="Start time" InputType="InputType.DateTimeLocal" />
+                    <MudTextField T="DateTime?" Format="s" @bind-Value="roundVM.EndTime" Label="End time" InputType="InputType.DateTimeLocal" />
+                </MudStack>
+                <MudTimePicker Label="Tổng thời gian" TimeEditMode="TimeEditMode.Normal" @bind-Time="roundVM.TotalTime" />
+                <MudTextField T="string" @bind-Value="roundVM.Description" Label="Mô tả"></MudTextField>
+                <MudText>Đặc biệt</MudText>
+                <MudStack Row="true">
+                    <MudSwitch @bind-Checked="roundVM.IsDisableBackspace" Label="Không được xóa" Color="Color.Success" />
+                    <MudSwitch @bind-Checked="roundVM.IsHavingSpecialChar" Label="Có kí tự đặc biệt" Color="Color.Success" />
+                </MudStack>
+                <MudTextField InputType="InputType.Number" T="int" @bind-Value="roundVM.MaxAccess" Label="Giới hạn truy cập"></MudTextField>
+                <MudText>Vòng</MudText>
+                <MudSwitch @bind-Checked="roundVM.IsFinal" Label="Vòng chung kết" Color="Color.Success" />
+                <MudImage Src="@imageUrl" Alt="" Elevation="25" Class="rounded-lg" />
+            </MudContainer>
+        </DialogContent>
+        <DialogActions>
+            <MudButton OnClick="Cancel">Cancel</MudButton>
+        </DialogActions>
+    </MudDialog>
+}
+else
+{
+    <Loading></Loading>
+}
+@code {
+    [CascadingParameter] MudDialogInstance MudDialog { get; set; }
+
+    [Inject]
+    public IRoundRespositoreis _roundRespositoreis { get; set; }
+    public RoundVM roundVM = new RoundVM();
+    private string imageUrl;
+
+    [Parameter]
+    public Guid Id { get; set; }
+    protected override async Task OnInitializedAsync()
+    {
+        roundVM = await _roundRespositoreis.GetByIdAsync(Id);
+        imageUrl = roundVM.ImageUrl;
+    }
+    private void Cancel()
+    {
+        MudDialog.Cancel();
+    }
+}

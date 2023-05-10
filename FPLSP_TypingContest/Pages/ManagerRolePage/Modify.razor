@@ -1,0 +1,204 @@
+﻿@page "/UserAuthorizationModify/{Id}"
+@using FPLSP_TypingContest.Repositories.Interfaces;
+@using FPLSP_TypingContest.Server.BLL.ViewModels.UserIdentityVM;
+@using Microsoft.AspNetCore.Identity;
+@using Blazored.Toast.Services;
+@using System.Net.Mail;
+@using System.Net;
+@using Microsoft.AspNetCore.Hosting;
+@attribute [Authorize(Roles = "ADMIN,FACILITYADMIN")]
+
+
+@if (_User != null)
+{
+    <div class="border_box-shadow @overlay">
+        <h3>Cấp chức vụ cho: @_User.Email</h3>
+        <div class="center_horizontal" style="margin: 50px 0 20px 0;">
+            <MudChipSet @bind-bind-SelectedChips="_User.Roles" MultiSelection="true" Filter="true">
+                @foreach (var role in _GetAllRole)
+                {
+                    <MudChip @onclick="()=> click(role.Name)" Text="@role.Name" Default="@(_User.Roles.Any(c=>c == role.Name) ? true : false)"></MudChip>
+                }
+            </MudChipSet> 
+        </div>
+
+        <div class="d-flex justify-center">
+            @if (_User.Roles != null && _User.Roles.Count > 0)
+            {
+                <MudText>Chức vụ được phân @string.Join(", ", _User.Roles).</MudText>
+            }
+            else
+            {
+                <MudText>Không có chức vụ.</MudText>
+            }
+        </div>
+        <div class="center_horizontal" style="margin-top: 20px;">
+            <div>
+                <a href="/UserAuthorizationManagement" style="margin-right: 10px;" type="button" class="btn btn-danger">Quay lại</a>
+                <button type="button" @onclick="Submit" style="margin-left: 10px;" class="btn btn-primary">Cấp chức vụ</button>
+            </div>
+        </div>
+    </div>
+
+    //Xác nhận thao tác
+    <Confirm ConfirmationMessage="Xác nhận cấp chức vụ"
+         ConfirmationChanged="OnConfirmationSubmit"
+         @ref="Confirmsubmit"></Confirm>
+}
+else
+{
+    <Loading></Loading>
+}
+
+@code
+{
+    [Parameter]
+    public string Id { get; set; }
+
+    [Inject]
+    public IUserIdentityRespositories _userIdentityRespositories { get; set; }
+    [Inject]
+    public RoleManager<IdentityRole> _roleManager { get; set; }
+    [Inject]
+    private NavigationManager _NavigationManager { get; set; }
+    [Inject]
+    private IToastService _toastService { get; set; }
+    [Inject]
+    private IHostingEnvironment _hostingEnvironment { get; set; }
+    [Inject]
+    private IHttpContextAccessor HttpContextAccessor { get; set; }
+
+    private string overlay = "";
+
+    private List<IdentityRole> _GetAllRole = new List<IdentityRole>();
+    private UserIdentityVM _User;
+    private List<string> RolesForUser = new();
+    protected Confirm Confirmsubmit { get; set; }
+    
+    protected override async Task OnInitializedAsync()
+    {
+        //Lấy được quyền của người dùng từ Claims
+        RolesForUser = HttpContextAccessor.HttpContext.User.Claims.Select(c => c.Value).ToList();
+        _User = await _userIdentityRespositories.GetUserByIdIdentityAsync(Id);
+        _GetAllRole = _roleManager.Roles.ToList();
+
+        var admin = _GetAllRole.FirstOrDefault(c => c.Name == ("ADMIN"));
+
+        if (RolesForUser.Any(c => c =="ADMIN"))
+        {
+            _GetAllRole.Remove(admin);
+        }
+        else if (RolesForUser.Any(c => c == "FACILITYADMIN"))
+        {
+            var facilityadmin = _GetAllRole.FirstOrDefault(c => c.Name == ("FACILITYADMIN"));
+            _GetAllRole.Remove(facilityadmin);
+            _GetAllRole.Remove(admin);
+        }
+    }
+    private async Task AddRole()
+    {
+        try
+        {
+            var updateRoles = await _userIdentityRespositories.UpdateUserIdentityAsync(_User);
+            if (updateRoles)
+            {
+                _toastService.ShowSuccess("Cấp chức vụ thành công");
+                _NavigationManager.NavigateTo("/UserAuthorizationManagement");
+                if (_User.Roles.Count > 0)
+                {
+                    await SendEmail();
+                }
+            }
+            else
+            {
+                _toastService.ShowError("Cấp chức vụ thất bại");
+            }
+        }
+        catch (Exception)
+        {
+            _toastService.ShowError("Cấp chức vụ thất bại");
+        }
+    }
+
+    private void click(string name)
+    {
+        if (_User.Roles.Any(c => c == name))
+        {
+            _User.Roles.Remove(name);
+        }
+        else
+        {
+            _User.Roles.Add(name);
+        }
+    }
+
+    //Thêm 1 lớp phủ lên màn
+    private async Task Submit()
+    {
+        overlay = "overlay_costum";
+        Confirmsubmit.show();
+    }
+
+    public async Task OnConfirmationSubmit(bool confirmed)
+    {
+        overlay = "";
+        if (confirmed)
+        {
+            await AddRole();
+        }
+    }
+
+    private async Task SendEmail()
+    {
+        try
+        {
+            //Gửi Email
+            string to, from, pass, email;
+            to = _User.Email;
+
+            from = "truongnvph26436@fpt.edu.vn";
+            string rootpath = System.IO.Path.Combine(_hostingEnvironment.ContentRootPath, @"wwwroot\SendEmail\SendEmail.html");
+            email = ReadEmailTemplate(rootpath);
+            email = email.Replace("#time#", DateTime.Now.ToString("HH:mm") + " " + DateTime.Now.ToString("dd/MM/yyyy"));
+            email = email.Replace("#name#", _User.UserName);
+            email = email.Replace("#role#", string.Join(", ", _User.Roles));
+
+            AlternateView alternateView = AlternateView.CreateAlternateViewFromString(email, null, "text/html");
+
+            pass = "yclnvhixhvxuygna";
+
+            MailMessage mailMessage = new MailMessage();
+
+            mailMessage.To.Add(to);
+            mailMessage.From = new MailAddress(from);
+            mailMessage.Subject = "THÔNG BÁO: THAY ĐỔI CHỨC VỤ TRONG TYPINGCONTEST";
+            mailMessage.Body = email;
+            mailMessage.IsBodyHtml = false;
+            mailMessage.AlternateViews.Add(alternateView);
+
+            SmtpClient smtp = new SmtpClient("smtp.gmail.com", 587);
+
+            smtp.UseDefaultCredentials = false;
+            smtp.EnableSsl = true;
+            smtp.DeliveryMethod = SmtpDeliveryMethod.Network;
+            smtp.Credentials = new NetworkCredential(from, pass);
+            smtp.Timeout = 10000;//Thời gian chờ tối đa 10s
+            await smtp.SendMailAsync(mailMessage);
+        }
+        catch (Exception)
+        {
+
+        }
+    }
+
+    //Đọc định dạng html -> template email
+    private string ReadEmailTemplate(string template)
+    {
+        string result = "";
+        StreamReader reader = new(template);
+        result = reader.ReadToEnd();
+        reader.Close();
+        return result;
+    }
+
+}

@@ -1,0 +1,371 @@
+﻿@using Blazored.Toast.Services;
+@inject IDialogService Dialog
+@using FPLSP_TypingContest.Repositories.Interfaces;
+@using FPLSP_TypingContest.Server.BLL.ViewModel.Round;
+@using FPLSP_TypingContest.Server.BLL.ViewModels.ContentForRound;
+@using FPLSP_TypingContest.Server.BLL.ViewModels.LevelModel;
+@using FPLSP_TypingContest.Server.BLL.ViewModels.Round;
+@using FPLSP_TypingContest.Server.BLL.ViewModels.TextTemplate;
+@using FPLSP_TypingContest.Server.DAL.Entities;
+@inject IToastService _IToastService
+@inject ISnackbar Snackbar
+@inject IWebHostEnvironment _env
+
+@if (roundCreateVM != null)
+{
+    <MudDialog>
+        <DialogContent>
+            <MudContainer Style="overflow-y: scroll">
+                <MudTextField T="string" @bind-Value="roundCreateVM.Name" Label="Tên vòng thi"></MudTextField>
+                <MudStack Row="true">
+                    <MudTextField T="DateTime?" Format="s" @bind-Value="roundCreateVM.StartTime" Label="Start time" InputType="InputType.DateTimeLocal" />
+                    <MudTextField T="DateTime?" Format="s" @bind-Value="roundCreateVM.EndTime" Label="End time" InputType="InputType.DateTimeLocal" />
+                </MudStack>
+                <MudTimePicker Label="Tổng thời gian" TimeEditMode="TimeEditMode.Normal" AmPm="true" @bind-Time="roundCreateVM.TotalTime" Step="1" Min="00:01" Max="01:00" />
+                <MudTextField T="string" @bind-Value="roundCreateVM.Description" Label="Mô tả"></MudTextField>
+                <MudText>Chọn văn bản</MudText>
+                <MudButton OnClick="@(() => SelectTextTemplate())" Variant="Variant.Filled" EndIcon="@Icons.Material.Filled.Send" Color="Color.Primary">Chọn mẫu</MudButton>
+                @if (_selectedTemplateContent != null)
+                {
+                    <MudTextField T="string" @bind-Value="_selectedTemplateContent" Label="Nội dung mẫu"></MudTextField>
+                    @if (Count < 300)
+                    {
+                        <MudSelect @bind-Value="selectedItem" T="int" Label="Đoạn văn" AnchorOrigin="Origin.BottomCenter">
+                            <MudSelectItem Value="1">1</MudSelectItem>
+                        </MudSelect>
+                    }
+                    else if (Count >= 300 && Count <= 400)
+                    {
+                        <MudSelect  @bind-Value="selectedItem" T="int" Label="Đoạn văn" AnchorOrigin="Origin.BottomCenter">
+                            <MudSelectItem Value="1">1</MudSelectItem>
+                            <MudSelectItem Value="2">2</MudSelectItem>
+                        </MudSelect>
+                    }
+                    else if (Count > 400 && Count <= 700)
+                    {
+                        <MudSelect @bind-Value="selectedItem" T="int" Label="Đoạn văn" AnchorOrigin="Origin.BottomCenter">
+                            <MudSelectItem Value="1">1</MudSelectItem>
+                            <MudSelectItem Value="2">2</MudSelectItem>
+                            <MudSelectItem Value="3">3</MudSelectItem>
+                        </MudSelect>
+                    }
+                    else
+                    {
+                        <MudTextField T="int" Label="Đoạn văn"></MudTextField>
+                    }
+                }
+
+                <MudText>Đặc biệt</MudText>
+                <MudStack Row="true">
+                    <MudSwitch @bind-Checked="roundCreateVM.IsDisableBackspace" Label="Không được xóa" Color="Color.Success" />
+                    <MudSwitch @bind-Checked="roundCreateVM.IsHavingSpecialChar" Label="Có kí tự đặc biệt" Color="Color.Success" />
+                </MudStack>
+                <MudTextField InputType="InputType.Number" T="int" @bind-Value="roundCreateVM.MaxAccess" Label="Giới hạn truy cập"></MudTextField>
+                <MudText>Vòng</MudText>
+                <MudSwitch @bind-Checked="roundCreateVM.IsFinal" Label="Vòng chung kết" Color="Color.Success" />
+                <MudText>Ảnh</MudText>
+                <InputFile OnChange="HandleFileSelect" accept=".jpg,.jpeg,.png" />
+                @if (selectedImage != null)
+                {
+                    <MudImage Src="@imageUrl" Alt="" Elevation="25" Class="rounded-lg" />
+                }
+            </MudContainer>
+        </DialogContent>
+        <DialogActions>
+            <MudButton OnClick="Cancel">Cancel</MudButton>
+            <MudButton Color="Color.Primary" @onclick="OnconfirmForm">Thêm</MudButton>
+        </DialogActions>
+    </MudDialog>
+
+}
+else
+{
+    <Loading></Loading>
+}
+<Confirm @ref="confirmForm" ConfirmationChanged="Creates"></Confirm>
+@code {
+    [CascadingParameter] MudDialogInstance MudDialog { get; set; }
+    [Inject]
+    public IRoundRespositoreis _roundRespositoreis { get; set; }
+    [Inject]
+    public IContentForRoundRepositories _contentForRoundRepositories { get; set; }
+    [Inject] private ILevelRespositories _reposLevel { get; set; }
+    protected Confirm confirmForm { get; set; }
+    protected bool ShowConfirmation { get; set; }
+    [Parameter]
+    public EventCallback<string> CreateNew { get; set; }
+    private bool OnOpenConfirm = false;
+    public RoundCreateVM roundCreateVM = new RoundCreateVM();
+    public ContentForRoundCreateVM contentForRoundCreateVM = new ContentForRoundCreateVM();
+    public RoundVM _RoundVM = new RoundVM();
+    [Parameter]
+    public string IdContest { get; set; }
+
+    private string webRootPath;
+    private IBrowserFile selectedImage;
+    private string imageUrl;
+    [Inject] private ITextTemplateRespositories _reposText { get; set; }
+
+    private TextTemplateVM _textTemplate;
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        webRootPath = _env.WebRootPath;
+    }
+
+
+    protected async Task OnOpendFormAdd()
+    {
+        ShowConfirmation = false;
+        await CreateNew.InvokeAsync();
+    }
+    public void OnconfirmForm()
+    {
+        confirmForm.show();
+    }
+    private List<RoundVM> _Rounds;
+    private async Task ReloadData()
+    {
+        // reload data here
+        _Rounds = await _roundRespositoreis.GetByIdContestAsync(IdContest);
+    }
+    private async Task<Guid> GetRoundId()
+    {
+        // Lấy danh sách Round theo Id của Contest
+        List<RoundVM> rounds = await _roundRespositoreis.GetByIdContestAsync(IdContest);
+
+        // Lấy Round đầu tiên trong danh sách
+        RoundVM round = rounds.FirstOrDefault();
+
+        // Trả về Id của Round
+        return round.Id;
+    }
+    public async Task Creates(bool value)
+    {
+        if (value && await ValidateForm() && ValidateFormNull())
+        {
+            contentForRoundCreateVM.Content = SplitParagraph(_selectedTemplateContent, selectedValue);
+            contentForRoundCreateVM.IdTextTemplate = _textTemplateId;
+            Guid roundId = await GetRoundId();
+            contentForRoundCreateVM.IdRound = roundId;
+            roundCreateVM.CreatedBy = Guid.Parse("86B85FFD-95AA-427B-80A2-3690D86E6DC9");
+            roundCreateVM.IdContest = Guid.Parse(IdContest);
+            roundCreateVM.ImageUrl = imageUrl;
+            if (value)
+            {
+                await _roundRespositoreis.AddAsync(roundCreateVM);
+                await _contentForRoundRepositories.AddAsync(contentForRoundCreateVM);
+                MudDialog.Close(DialogResult.Ok(true));
+                _IToastService.ShowSuccess("successfully");
+            }
+            else
+            {
+                MudDialog.Close(DialogResult.Ok(true));
+                _IToastService.ShowError("Error");
+            }
+
+        }
+    }
+    // Add ảnh
+
+
+    private async Task HandleFileSelect(InputFileChangeEventArgs e)
+    {
+        selectedImage = e.File;
+
+        if (selectedImage != null)
+        {
+            var fileName = $"{DateTime.Now.Ticks}_{selectedImage.Name}";
+            var filePath = Path.Combine(webRootPath, "image/RoundImg", fileName);
+
+            using (var stream = new FileStream(filePath, FileMode.Create))
+            {
+                await selectedImage.OpenReadStream().CopyToAsync(stream);
+            }
+
+            imageUrl = $"/image/RoundImg/{fileName}";
+        }
+    }
+
+    // validate ngày
+    private async Task<bool> ValidateForm()
+    {
+        // Kiểm tra Start time và End time của round mới
+        if (roundCreateVM.StartTime >= roundCreateVM.EndTime)
+        {
+            Snackbar.Add("Start time must be less than end time.", Severity.Error);
+            return false;
+        }
+
+        var previousRounds = await _roundRespositoreis.GetAllActiveAsync();
+        previousRounds = previousRounds.Where(r => r.IdContest == Guid.Parse(IdContest)).ToList();
+
+        // Kiểm tra nếu đã tồn tại Round với IsFinal = 1 thì không thêm Round nào có IsFinal = 1 nữa
+        if (previousRounds.Any(r => r.IsFinal))
+        {
+            if (roundCreateVM.IsFinal)
+            {
+                Snackbar.Add("There is already a final round for this contest.", Severity.Error);
+                return false;
+            }
+        }
+
+
+        foreach (var round in previousRounds)
+        {
+            if ((roundCreateVM.StartTime >= round.StartTime && roundCreateVM.StartTime <= round.EndTime) || (roundCreateVM.EndTime >= round.StartTime && roundCreateVM.EndTime <= round.EndTime))
+            {
+                Snackbar.Add("Start time and End time must not overlap with existing rounds.", Severity.Error);
+                return false;
+            }
+        }
+        if (roundCreateVM.IsFinal)
+        {
+            // Get all active rounds
+            var rounds = await _roundRespositoreis.GetAllActiveAsync();
+
+            // Filter out the current round and other rounds with different contest IDs
+            rounds = rounds.Where(r => r.IdContest == Guid.Parse(IdContest)).ToList();
+
+            // Find the latest end time among all rounds
+            var latestEndTime = rounds.Max(r => r.EndTime);
+
+            // Check if the current round's start time is later than the latest end time
+            if (roundCreateVM.StartTime <= latestEndTime)
+            {
+                Snackbar.Add("Start time must be later than the latest end time among all rounds.", Severity.Error);
+                return false;
+            }
+
+            // Find the latest start time among all rounds
+            var latestStartTime = rounds.Max(r => r.StartTime);
+
+            // Check if the current round's end time is later than the latest start time
+            if (roundCreateVM.EndTime <= latestStartTime)
+            {
+                Snackbar.Add("End time must be later than the latest start time among all rounds.", Severity.Error);
+                return false;
+            }
+        }
+        return true;
+    }
+    //validate form
+    private bool ValidateFormNull()
+    {
+        if (string.IsNullOrEmpty(roundCreateVM.Name))
+        {
+            Snackbar.Add("Please enter a round name.", Severity.Error);
+            return false;
+        }
+        if (roundCreateVM.StartTime == null)
+        {
+            Snackbar.Add("Please enter a start time.", Severity.Error);
+            return false;
+        }
+        if (roundCreateVM.EndTime == null)
+        {
+            Snackbar.Add("Please enter an end time.", Severity.Error);
+            return false;
+        }
+        if (roundCreateVM.TotalTime == null)
+        {
+            Snackbar.Add("Please enter a total time.", Severity.Error);
+            return false;
+        }
+        if (string.IsNullOrEmpty(roundCreateVM.Description))
+        {
+            Snackbar.Add("Please enter a description.", Severity.Error);
+            return false;
+        }
+        if (roundCreateVM.MaxAccess <= 0)
+        {
+            Snackbar.Add("Max access must be a positive number.", Severity.Error);
+            return false;
+        }
+        if (string.IsNullOrEmpty(imageUrl))
+        {
+            Snackbar.Add("Please select an image for the round.", Severity.Error);
+            return false;
+        }
+        return true;
+    }
+    // Add TextTemplate
+    private string _selectedTemplateContent;
+    private int Count;
+    private async Task OnSelectedTempl(Guid id)
+    {
+        var template = await _reposText.GetByIdAsync(id);
+        _selectedTemplateContent = template.Content;
+        Count = CountCharactersWithWhiteSpace(_selectedTemplateContent);
+    }
+    private int CountCharactersWithWhiteSpace(string input)
+    {
+        // Loại bỏ các khoảng trắng trong chuỗi
+        string inputWithoutWhiteSpace = input.Replace(" ", "");
+        // Đếm số kí tự trong chuỗi đã loại bỏ khoảng trắng
+        int count = inputWithoutWhiteSpace.Length;
+        return count;
+    }
+    private Guid _textTemplateId;
+    private async Task SelectTextTemplate()
+    {
+        var parameters = new DialogParameters();
+        parameters.Add("OnTemplateSelected", new Action<Guid>(id => _textTemplateId = id));
+        var options = new DialogOptions
+            {
+                MaxWidth = MaxWidth.Small,
+                FullWidth = true,
+                CloseButton = true
+            };
+        var dialog = Dialog.Show<TextTemplateSelected>("Thêm mẫu văn bản", parameters, options);
+        var result = await dialog.Result;
+        if (!result.Cancelled)
+        {
+            await OnSelectedTempl(_textTemplateId);
+        }
+    }
+    //chia đoạn văn 
+    public string SplitParagraph(string paragraph, int numSections)
+    {
+        List<string> sections = new List<string>();
+        int sectionLength = paragraph.Length / numSections;
+        int remainder = paragraph.Length % numSections;
+        int start = 0;
+        for (int i = 0; i < numSections; i++)
+        {
+            int length = sectionLength;
+            if (i < remainder)
+            {
+                length++;
+            }
+            sections.Add(paragraph.Substring(start, length));
+            start += length;
+        }
+        return string.Join("", sections);
+    }
+    // lấy giá trị value text
+    private int selectedItem;
+    private int selectedValue
+    {
+        get
+        {
+            switch (selectedItem)
+            {
+                case 1:
+                    return 1;
+                case 2:
+                    return 2;
+                case 3:
+                    return 3;
+                default:
+                    return 0;
+            }
+        }
+    }
+    //hủy
+    private void Cancel()
+    {
+        MudDialog.Cancel();
+    }
+}

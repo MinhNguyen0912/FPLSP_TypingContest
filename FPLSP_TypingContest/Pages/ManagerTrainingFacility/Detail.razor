@@ -1,0 +1,140 @@
+﻿@using FPLSP_TypingContest.Server.BLL.ViewModels.TranningFacility;
+@inject FPLSP_TypingContest.Repositories.Interfaces.ITrainingFacilitysRepositories _TrainingFacilitysRepositories;
+@inject NavigationManager _navigation;
+@using Blazored.Toast
+@using Blazored.Toast.Services
+@inject IToastService _IToastService
+@inject IDialogService _diagService;
+@using System.Text.RegularExpressions
+@using System.ComponentModel.DataAnnotations
+
+<MudPopover Style="background-color: rgba(255, 255, 255, 0.8); width: 100vw; height: 100vh; position: fixed;" Open="true" >
+    <div class="d-flex justify-center align-center w-100" style="margin: 70px"> 
+        <MudPaper Class="px-5 pt-5 pb-4 w-50"  Elevation="3">
+
+            @*Tiêu đề*@
+            <div class="d-flex align-items-center mb-2">
+                <MudText Typo="Typo.h5" Class="mr-auto" Style="font-weight: 500;"> Cơ Sở Đào Tạo</MudText>
+                              <MudIconButton Icon="@Icons.Material.Filled.Close" Color="Color.Error" OnClick="@OnOpendFormDetail"></MudIconButton>
+            </div>
+<MudGrid>
+    <MudItem xs="12" sm="7">
+        <MudPaper Class="pa-4">
+            <MudForm @ref="form" @bind-IsValid="@success" @bind-Errors="@errors">
+                    <MudTextField T="string" @bind-Value = "trainingFacilityVM.Name" Label="Tên" Required="true" RequiredError="Tên không được trống!"/>
+                    <MudTextField T="string" @bind-Value = "trainingFacilityVM.Email" Label="Email" Required="true" RequiredError="Email không được trống!"
+                                  Validation="@(new EmailAddressAttribute() {ErrorMessage = "The email address is invalid"})"/>
+                     <MudTextField T="string" @bind-Value = "trainingFacilityVM.Address" Label="Địa Chỉ" Required="true" RequiredError="Địa Chỉ không được trống!"/>
+                     <MudTextField T="string" @bind-Value = "trainingFacilityVM.PhoneNumber" Label="SĐT" Required="true" RequiredError="SĐT không được trống!"/>
+<MudSelect Margin="Margin.Dense" T="int"@bind-Value = "trainingFacilityVM.Status" Label="Trạng Thái" Variant="Variant.Text">
+  <MudSelectItem Value="0">Hoạt Động</MudSelectItem>
+ <MudSelectItem Value="1">Không hoạt động</MudSelectItem>
+</MudSelect>
+   <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@(!success)" @onclick ="OnconfirmForm"Style="margin-top:13px" Class="ml-auto">Lưu</MudButton>
+
+            </MudForm>
+        </MudPaper>
+        <MudPaper Class="pa-4 mt-4">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" DisableElevation="true" OnClick="@(()=>form.Validate())">Kiểm tra lỗi</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Secondary" DisableElevation="true" OnClick="@(()=>Reset())" Class="mx-2">Làm Mới</MudButton>
+            <MudButton Variant="Variant.Filled" DisableElevation="true" OnClick="@(()=>form.ResetValidation())">Reset Lỗi</MudButton>
+        </MudPaper>
+    </MudItem>
+</MudGrid>
+  </MudPaper>
+</div>
+<Confirm @ref = "confirmForm" ConfirmationChanged="Update"
+    ConfirmationTitle="Cập Nhật Cở Sở Đào Tạo"
+    ConfirmationMessage="Bạn Có Muốn Cập Nhật Không">
+</Confirm>
+</MudPopover>
+
+@code {
+
+    protected Confirm confirmForm { get; set; }
+    protected bool ShowConfirmation { get; set; }
+
+    [Parameter]
+    public Guid Id { get; set; }
+
+    [Parameter]
+    public EventCallback detail { get; set; }
+
+    public TrainingFacilityVM trainingFacilityVM = new TrainingFacilityVM();
+    public TrainingFacilityUpdateVM trainingFacilityUpdateVM = new TrainingFacilityUpdateVM();
+    public List<TrainingFacilityVM> trainingFacilityVMs;
+
+    public async Task LoadData()
+    {
+        trainingFacilityVMs = await _TrainingFacilitysRepositories.GetAllActiveAsync();
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        trainingFacilityVM = await _TrainingFacilitysRepositories.GetByIdAsync(Id);
+    }
+    protected async Task OnOpendFormDetail()
+    {
+        await detail.InvokeAsync();
+    }
+    public void OnconfirmForm()
+    {
+        confirmForm.show();
+    }
+    public async Task Reset()
+    {
+        trainingFacilityVM = await _TrainingFacilitysRepositories.GetByIdAsync(Id);
+    }
+    public async Task Update()
+    {
+        trainingFacilityUpdateVM.ModifiedBy = Guid.Parse("3FA85F64-5717-4562-B3FC-2C963F66AFA6");
+        trainingFacilityUpdateVM.PhoneNumber = trainingFacilityVM.PhoneNumber;
+        trainingFacilityUpdateVM.Address = trainingFacilityVM.Address;
+        trainingFacilityUpdateVM.Email = trainingFacilityVM.Email;
+        trainingFacilityUpdateVM.Name = trainingFacilityVM.Name;
+        trainingFacilityUpdateVM.Status = trainingFacilityVM.Status;
+
+        bool result = await _TrainingFacilitysRepositories.UpdateAsync(Id, trainingFacilityUpdateVM);
+        if (result)
+        {
+            _IToastService.ShowSuccess("successfully");
+            _navigation.NavigateTo("/ListTrainingFacility");
+        }
+        else
+        {
+            _IToastService.ShowError("Error");
+        }
+        await LoadData();
+        await detail.InvokeAsync();
+    }
+
+    bool success;
+    string[] errors = { };
+    MudTextField<string> pwField1;
+    MudForm form;
+
+    private IEnumerable<string> PasswordStrength(string pw)
+    {
+        if (string.IsNullOrWhiteSpace(pw))
+        {
+            yield return "Password is required!";
+            yield break;
+        }
+        if (pw.Length < 8)
+            yield return "Password must be at least of length 8";
+        if (!Regex.IsMatch(pw, @"[A-Z]"))
+            yield return "Password must contain at least one capital letter";
+        if (!Regex.IsMatch(pw, @"[a-z]"))
+            yield return "Password must contain at least one lowercase letter";
+        if (!Regex.IsMatch(pw, @"[0-9]"))
+            yield return "Password must contain at least one digit";
+    }
+
+    private string PasswordMatch(string arg)
+    {
+        if (pwField1.Value != arg)
+            return "Passwords don't match";
+        return null;
+    }
+
+}

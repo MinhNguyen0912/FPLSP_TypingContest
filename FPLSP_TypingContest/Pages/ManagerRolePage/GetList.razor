@@ -1,0 +1,103 @@
+﻿@page "/UserAuthorizationManagement"
+@using FPLSP_TypingContest.Repositories.Interfaces;
+@using FPLSP_TypingContest.Server.BLL.Services.Implements;
+@using FPLSP_TypingContest.Server.BLL.ViewModels.TranningFacility;
+@using FPLSP_TypingContest.Server.BLL.ViewModels.User;
+@using FPLSP_TypingContest.Server.BLL.ViewModels.UserIdentityVM;
+@using Microsoft.AspNetCore.Identity;
+@using MudBlazor
+@attribute [Authorize(Roles = "ADMIN,FACILITYADMIN")]
+
+
+@if (_Users != null)
+{
+    <MudTable Items="@_Users" FixedHeader="true" Height="400px" Hover="true" Filter="new Func<UserIdentityVM,bool>(FilterFunc)"
+          SortLabel="Sort By">
+        <ToolBarContent>
+            <MudText Typo="Typo.h4"><b>Danh sách người dùng</b></MudText>
+            <MudSpacer />
+            <MudTextField @bind-Value="searchString" Placeholder="Search" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
+        </ToolBarContent>
+        <ColGroup>
+            <col />
+            <col />
+            <col />
+            <col />
+        </ColGroup>
+        <HeaderContent>
+            <MudTh>STT</MudTh>
+            <MudTh>Tên người dùng</MudTh>
+            <MudTh><MudTableSortLabel SortBy="new Func<UserIdentityVM, object>(x=>x.Email)">Email</MudTableSortLabel></MudTh>
+            <MudTh>Chức vụ</MudTh>
+            <MudTh>Cơ sở</MudTh>
+            <MudTh>Chức năng</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd DataLabel="STT">@(_Users.IndexOf(context) + 1)</MudTd>
+            <MudTd DataLabel="UserName">@context.UserName</MudTd>
+            <MudTd DataLabel="Email">@context.Email</MudTd>
+            <MudTd DataLabel="Role">
+                @if (context.Roles.Count > 0)
+                {
+                    @foreach (var role in context.Roles)
+                    {
+                        <span class="badge text-bg-secondary">@role</span>
+                    }
+                }
+                else
+                {
+                    <b>Không có chức vụ.</b>
+                }
+            </MudTd>
+            <MudTd DataLabel="UserName"><b>@(_TrainingFacilityVMs.FirstOrDefault(c => c.Id == context.IdTrainingFacility).Name)</b></MudTd>
+            <MudTd DataLabel="Action">
+                <a href="/UserAuthorizationModify/@context.Id" title="Cập nhận chức vụ" type="button" class="btn btn-outline-success"><i class="fa-solid fa-user-pen"></i></a>
+            </MudTd>
+        </RowTemplate>
+    </MudTable>
+}
+else
+{
+    <Loading></Loading>
+}
+
+@code {
+    [Inject]
+    public IUserIdentityRespositories _userIdentityRespositories { get; set; }
+    [Inject]
+    public ITrainingFacilitysRepositories _trainingFacilitysRepositories { get; set; }
+    [Inject]
+    public IHttpContextAccessor HttpContextAccessor { get; set; }
+
+    private string searchString = "";
+
+    private List<UserIdentityVM> _Users;
+    private List<TrainingFacilityVM> _TrainingFacilityVMs;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _TrainingFacilityVMs = await _trainingFacilitysRepositories.GetAllAsync();
+        var roles = HttpContextAccessor.HttpContext.User.Claims.Select(c => c.Value).ToList();
+        if (roles.Any(c => c == "ADMIN"))
+        {
+            _Users = await _userIdentityRespositories.GetUsersIdentityAsync();
+        }
+        else
+        {
+            var user = HttpContextAccessor.HttpContext.Session.GetObject<UserVM>("user");
+            _Users = await _userIdentityRespositories.GetUsersIdentityAsync();
+            _Users = _Users.Where(c => c.IdTrainingFacility == user.IdTrainingFacility).ToList();
+        }
+
+    }
+
+    private bool FilterFunc(UserIdentityVM user)
+    {
+        if (string.IsNullOrWhiteSpace(searchString))
+            return true;
+        if (user.Email.Contains(searchString, StringComparison.OrdinalIgnoreCase))
+            return true;
+        return false;
+    }
+}
+

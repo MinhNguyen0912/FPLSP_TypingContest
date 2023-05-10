@@ -1,0 +1,190 @@
+﻿@page "/RoundPage/List/{idContest}"
+@inject IDialogService Dialog
+@using Blazored.Toast.Services
+@using FPLSP_TypingContest.Repositories.Interfaces
+@using FPLSP_TypingContest.Server.BLL.ViewModels.Round;
+@inject IToastService _IToastService
+
+
+@if (_Rounds != null)
+{
+    stt = 1;
+    <section style="background-color: #F0F2F5;">
+        <div class="container py-5">
+            <div class="row">
+                <div class="col-11">
+                </div>
+                <div class="col-1">
+                    <MudFab OnClick="@((e) => OnClickAdd(idContest))" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" />
+                </div>
+            </div>
+            <div class="main-timeline">
+                @if (_Rounds.Count > 0)
+                {
+                    _Rounds = _Rounds.OrderBy(r => r.StartTime).ThenBy(r => r.EndTime).ToList();
+                    foreach (var round in _Rounds)
+                    {
+                        if (stt % 2 != 0)
+                        {
+                            <div class="timeline left">
+                                <div class="card">
+                                    <div class="card-body p-4">
+                                        <h3>@round.Name</h3>
+                                        <p class="mb-0">
+                                            @round.StartTime - @round.EndTime
+                                        </p>
+                                        <p class="mb-1">
+                                            @round.Description
+                                        </p>
+
+                                        <MudButton OnClick="@(() => OnClickUpdate(round.Id))"><i class="fa-solid fa-screwdriver-wrench"></i></MudButton>
+                                        <MudButton OnClick="@(() => OnClickDetail(round.Id))"><i class="fa-solid fa-circle-info"></i></MudButton>
+                                        <MudButton OnClick="@(() => OnDelete(round.Id))"><i class="fa-solid fa-trash"></i></MudButton>
+                                    </div>
+                                </div>
+                            </div>
+                            stt++;
+                        }
+                        else
+                        {
+                            <div class="timeline right">
+                                <div class="card">
+                                    <div class="card-body p-4">
+                                        <h3>@round.Name</h3>
+                                        <p class="mb-0">
+                                            @round.StartTime - @round.EndTime
+                                        </p>
+                                        <p class="mb-1">
+                                            @round.Description
+                                        </p>
+                                        <MudButton OnClick="@(() => OnClickUpdate(round.Id))"><i class="fa-solid fa-screwdriver-wrench"></i></MudButton>
+                                        <MudButton OnClick="@(() => OnClickDetail(round.Id))"><i class="fa-solid fa-circle-info"></i></MudButton>
+                                        <MudButton OnClick="@(() => OnDelete(round.Id))"><i class="fa-solid fa-trash"></i></MudButton>
+                                    </div>
+                                </div>
+                            </div>
+                            stt++;
+                        }
+                    }
+                }
+                else
+                {
+                    <div class="center_text">
+                        <span>Không có vòng thi</span>
+                    </div>
+                }
+            </div>
+        </div>
+    </section>
+}
+else
+{
+    <Loading></Loading>
+}
+<Confirm @ref="confirmForm" ConfirmationChanged="Deletes"></Confirm>
+@code {
+    //[CascadingParameter] MudDialogInstance MudDialog { get; set; }
+
+    [Inject]
+    public IRoundRespositoreis _roundRespositoreis { get; set; }
+    [Parameter]
+    public string idContest { set; get; }
+    private int stt = 1;
+    private List<RoundVM> _Rounds;
+    public RoundUpdateVM RoundUpdateVM = new RoundUpdateVM();
+    [Parameter]
+    public EventCallback<string> Delete { get; set; }
+
+
+    private async Task LoadData()
+    {
+        _Rounds = await _roundRespositoreis.GetByIdContestAsync(idContest);
+    }
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+    //dialog add
+
+    private async Task AddRound(string idContest)
+    {
+        var options = new DialogOptions
+            {
+                MaxWidth = MaxWidth.Medium,
+                FullWidth = true,
+                CloseButton = true
+            };
+        var parameters = new DialogParameters();
+        parameters.Add("idContest", idContest);
+        var dialog =  Dialog.Show<Create>("Thêm vòng thi", parameters, options);
+    }
+    private void OnClickAdd(string id)
+    {
+        AddRound(id);
+    }
+    //dialog update
+    private async Task UpdateRound(Guid id)
+    {
+        var options = new DialogOptions
+            {
+                MaxWidth = MaxWidth.Medium,
+                FullWidth = true,
+                CloseButton = true
+            };
+        var parameters = new DialogParameters();
+        parameters.Add("id", id);
+        var dialog = Dialog.Show<Update>("Update thông tin", parameters, options);
+    }
+    private async void OnClickUpdate(Guid id)
+    {
+        await UpdateRound(id);
+    }
+    //dialog detail
+    private void ShowDetail(Guid id)
+    {
+        var options = new DialogOptions
+            {
+                MaxWidth = MaxWidth.Medium,
+                FullWidth = true,
+                CloseButton = true
+            };
+        var parameters = new DialogParameters();
+        parameters.Add("id", id);
+        Dialog.Show<Detail>("Thông tin chi tiết", parameters, options);
+    }
+    private void OnClickDetail(Guid id)
+    {
+        ShowDetail(id);
+    }
+    // Delete
+    public Guid Id;
+    [Parameter]
+    public EventCallback<string> DeleteNew { get; set; }
+    private bool OnOpenConfirm = false;
+    private Confirm confirmForm { set; get; }
+    protected bool ShowConfirmation { get; set; }
+    protected async Task OnOpendFormAdd()
+    {
+        ShowConfirmation = false;
+        await DeleteNew.InvokeAsync();
+    }
+    public void OnDelete(Guid id)
+    {
+        confirmForm.show();
+        Id = id;
+    }
+    public async Task Deletes(bool value)
+    {
+        
+        if (value)
+        {
+            await _roundRespositoreis.RemoveAsync(Id, Guid.Parse("835C0ED0-6835-498C-83F1-8387E3F92402"));
+            _IToastService.ShowSuccess("successfully");
+        }
+        else
+        {
+            _IToastService.ShowError("Error");
+        }
+        await LoadData();
+    }
+}

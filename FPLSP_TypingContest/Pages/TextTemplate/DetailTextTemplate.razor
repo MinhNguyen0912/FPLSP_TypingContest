@@ -1,0 +1,60 @@
+﻿@using FPLSP_TypingContest.Server.BLL.ViewModels.TextTemplate
+@using FPLSP_TypingContest.Repositories.Interfaces
+@using FPLSP_TypingContest.Server.BLL.ViewModels.LevelModel
+
+
+@if (vm != null&&level!=null)
+{
+
+
+    <MudPaper Class="px-5 pt-5 pb-4 w-50" Elevation="3">
+
+        @*Tiêu đề*@
+        <div class="d-flex align-items-center mb-2">
+            <MudText Typo="Typo.h5" Class="mr-auto" Style="font-weight: 500;">Chi tiết mẫu văn bản</MudText>
+            <MudChip OnClick="OnClickCloseBtn" Icon="@Icons.Material.Filled.Close" Color="Color.Error">Đóng</MudChip>
+        </div>
+
+        @*Nội dung thân*@
+        <div class="row" style="overflow:auto; max-height: 50vh;">
+            <MudForm Model="@vm" @ref="form" ReadOnly="true">
+                <MudTextField @bind-Value="vm.Title" T="string" Label="Tiêu đề" ReadOnly="true" />
+                <MudTextField Lines="3" @bind-Value="vm.Content" T="string" Label="Nội dung" ReadOnly="true" />
+                <MudTextField @bind-Value="level.Name" T="string" Label="Độ khó" ReadOnly="true" />
+            </MudForm>
+        </div>
+        @*Nội dung thân - End*@
+
+
+    </MudPaper>
+}
+
+@code {
+    [Inject] private ITextTemplateRespositories TextRepo { get; set; }
+    [Inject] private ILevelRespositories LevelRepo { get; set; }
+    TextTemplateVM vm = new TextTemplateVM();
+    LevelVM level = new LevelVM();
+    [Parameter]
+    public Guid _idText { get; set; }
+    [Parameter]
+    public EventCallback Close { get; set; }
+
+    private void OnClickCloseBtn()
+    {
+        Close.InvokeAsync();
+    }
+    protected override async Task OnInitializedAsync()
+    {
+        vm = await TextRepo.GetByIdAsync(_idText);
+        List<LevelVM> levels = await LevelRepo.GetAllActiveAsync();
+        level = levels.FirstOrDefault(p => p.Id == vm.IdLevel);
+    }
+
+    /////////////////////
+    MudForm form;
+    MudTextField<string> pwField1;
+
+    ///////////////////////
+
+}
+

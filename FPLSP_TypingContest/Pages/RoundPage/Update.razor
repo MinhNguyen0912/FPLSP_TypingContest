@@ -1,0 +1,242 @@
+﻿@using Blazored.Toast.Services;
+@using FPLSP_TypingContest.Repositories.Interfaces;
+@using FPLSP_TypingContest.Server.BLL.ViewModel.Round;
+@using FPLSP_TypingContest.Server.BLL.ViewModels.Round;
+@using FPLSP_TypingContest.Server.DAL.Entities;
+@inject IToastService _IToastService
+@inject ISnackbar Snackbar
+@inject IWebHostEnvironment _env
+
+@if (roundVM != null)
+{
+    <MudDialog>
+        <DialogContent>
+            <MudContainer Style="overflow-y: scroll">
+                <MudTextField T="string" @bind-Value="roundVM.Name" Label="Tên vòng thi"></MudTextField>
+                <MudStack Row="true">
+                    <MudTextField T="DateTime?" Format="s" @bind-Value="roundVM.StartTime" Label="Start time" InputType="InputType.DateTimeLocal" />
+                    <MudTextField T="DateTime?" Format="s" @bind-Value="roundVM.EndTime" Label="End time" InputType="InputType.DateTimeLocal" />
+                </MudStack>
+                <MudTimePicker Label="Tổng thời gian" TimeEditMode="TimeEditMode.Normal" @bind-Time="roundVM.TotalTime" />
+                <MudTextField T="string" @bind-Value="roundVM.Description" Label="Mô tả"></MudTextField>
+                <MudText>Đặc biệt</MudText>
+                <MudStack Row="true">
+                    <MudSwitch @bind-Checked="roundVM.IsDisableBackspace" Label="Không được xóa" Color="Color.Success" />
+                    <MudSwitch @bind-Checked="roundVM.IsHavingSpecialChar" Label="Có kí tự đặc biệt" Color="Color.Success" />
+                </MudStack>
+                <MudTextField InputType="InputType.Number" T="int" @bind-Value="roundVM.MaxAccess" Label="Giới hạn truy cập"></MudTextField>
+                <MudText>Vòng</MudText>
+                <MudSwitch @bind-Checked="roundVM.IsFinal" Label="Vòng chung kết" Color="Color.Success" />
+                <MudText>Ảnh</MudText>
+                <InputFile OnChange="HandleFileSelect" accept=".jpg,.jpeg,.png" />
+                <MudImage Src="@imageUrl" Alt="" Elevation="25" Class="rounded-lg" />
+                <Confirm @ref="confirmForm" ConfirmationChanged="Updates"></Confirm>
+            </MudContainer>
+        </DialogContent>
+        <DialogActions>
+            <MudButton OnClick="Cancel">Cancel</MudButton>
+        </DialogActions>
+        <DialogActions>
+            <MudButton OnClick="Cancel">Cancel</MudButton>
+            <MudButton Color="Color.Primary" @onclick="OnconfirmForm">Sửa</MudButton>
+        </DialogActions>
+    </MudDialog>
+
+}
+else
+{
+    <Loading></Loading>
+}
+@code {
+    [CascadingParameter] MudDialogInstance MudDialog { get; set; }
+
+    [Inject]
+    public IRoundRespositoreis _roundRespositoreis { get; set; }
+    public RoundVM roundVM = new RoundVM();
+    public RoundUpdateVM RoundUpdateVM = new RoundUpdateVM();
+    protected Confirm confirmForm { get; set; }
+    protected bool ShowConfirmation { get; set; }
+    [Parameter]
+    public EventCallback<string> UpdateNew { get; set; }
+    [Parameter]
+    public Guid Id { get; set; }
+    protected override async Task OnInitializedAsync()
+    {
+        roundVM = await _roundRespositoreis.GetByIdAsync(Id);
+        imageUrl = roundVM.ImageUrl;
+        webRootPath = _env.WebRootPath;
+    }
+
+    protected async Task OnOpendFormUpdate()
+    {
+        ShowConfirmation = false;
+        await UpdateNew.InvokeAsync();
+    }
+    public void OnconfirmForm()
+    {
+        confirmForm.show();
+    }
+    public async Task Updates(bool value)
+    {
+        if (value && ValidateFormNull() && await ValidateRoundTimes(roundVM.StartTime, roundVM.EndTime))
+        {
+
+
+            RoundUpdateVM.ModifiedBy = Guid.Parse("86B85FFD-95AA-427B-80A2-3690D86E6DC9");
+            RoundUpdateVM.Description = roundVM.Description;
+            RoundUpdateVM.IdContest = roundVM.IdContest;
+            RoundUpdateVM.StartTime = roundVM.StartTime.Value;
+            RoundUpdateVM.EndTime = roundVM.EndTime.Value;
+            RoundUpdateVM.IsFinal = roundVM.IsFinal;
+            RoundUpdateVM.IsDisableBackspace = roundVM.IsDisableBackspace;
+            RoundUpdateVM.IsHavingSpecialChar = roundVM.IsHavingSpecialChar;
+            RoundUpdateVM.MaxAccess = roundVM.MaxAccess;
+            RoundUpdateVM.TotalTime = roundVM.TotalTime.Value;
+            RoundUpdateVM.Name = roundVM.Name;
+            RoundUpdateVM.ImageUrl = imageUrl;
+            if (value)
+            {
+                await _roundRespositoreis.UpdateAsync(Id, RoundUpdateVM);
+                MudDialog.Close(DialogResult.Ok(true));
+                _IToastService.ShowSuccess("successfully");
+            }
+            else
+            {
+                MudDialog.Close(DialogResult.Ok(true));
+                _IToastService.ShowError("Error");
+            }
+
+        }
+    }
+    // validate ảnh
+    public async Task<bool> ValidateRoundTimes(DateTime? startTime, DateTime? endTime)
+    {
+        // Check if start time is earlier than end time
+        if (startTime >= endTime)
+        {
+            Snackbar.Add("Start time must be less than end time.", Severity.Error);
+            return false;
+        }
+
+        // Check if current round overlaps with previous rounds
+        var previousRounds = await _roundRespositoreis.GetAllActiveAsync();
+        previousRounds = previousRounds.Where(r => r.Id != Id && r.IdContest == roundVM.IdContest).ToList();
+
+        // Kiểm tra nếu đã tồn tại Round với IsFinal = 1 thì không thêm Round nào có IsFinal = 1 nữa
+        if (previousRounds.Any(r => r.IsFinal))
+        {
+            if (roundVM.IsFinal)
+            {
+                Snackbar.Add("There is already a final round for this contest.", Severity.Error);
+                return false;
+            }
+        }
+        foreach (var round in previousRounds)
+        {
+            if ((startTime >= round.StartTime && startTime <= round.EndTime) || (endTime >= round.StartTime && endTime <= round.EndTime))
+            {
+                Snackbar.Add("Start time and End time must not overlap with existing rounds.", Severity.Error);
+                return false;
+            }
+        }
+        // Check if current round is final round and end time is latest
+        if (roundVM.IsFinal)
+        {
+            // Get all active rounds
+            var rounds = await _roundRespositoreis.GetAllActiveAsync();
+
+            // Filter out the current round and other rounds with different contest IDs
+            rounds = rounds.Where(r => r.Id != Id && r.IdContest == roundVM.IdContest).ToList();
+
+            // Find the latest end time among all rounds
+            var latestEndTime = rounds.Max(r => r.EndTime);
+
+            // Check if the current round's start time is later than the latest end time
+            if (roundVM.StartTime <= latestEndTime)
+            {
+                Snackbar.Add("Start time must be later than the latest end time among all rounds.", Severity.Error);
+                return false;
+            }
+
+            // Find the latest start time among all rounds
+            var latestStartTime = rounds.Max(r => r.StartTime);
+
+            // Check if the current round's end time is later than the latest start time
+            if (roundVM.EndTime <= latestStartTime)
+            {
+                Snackbar.Add("End time must be later than the latest start time among all rounds.", Severity.Error);
+                return false;
+            }
+        }
+
+
+        return true;
+
+    }
+    //Check null
+    private bool ValidateFormNull()
+    {
+        if (string.IsNullOrEmpty(RoundUpdateVM.Name))
+        {
+            Snackbar.Add("Please enter a round name.", Severity.Error);
+            return false;
+        }
+        if (RoundUpdateVM.StartTime == null)
+        {
+            Snackbar.Add("Please enter a start time.", Severity.Error);
+            return false;
+        }
+        if (RoundUpdateVM.EndTime == null)
+        {
+            Snackbar.Add("Please enter an end time.", Severity.Error);
+            return false;
+        }
+        if (RoundUpdateVM.TotalTime == null)
+        {
+            Snackbar.Add("Please enter a total time.", Severity.Error);
+            return false;
+        }
+        if (string.IsNullOrEmpty(RoundUpdateVM.Description))
+        {
+            Snackbar.Add("Please enter a description.", Severity.Error);
+            return false;
+        }
+        if (RoundUpdateVM.MaxAccess <= 0)
+        {
+            Snackbar.Add("Max access must be a positive number.", Severity.Error);
+            return false;
+        }
+        if (string.IsNullOrEmpty(imageUrl))
+        {
+            Snackbar.Add("Please select an image for the round.", Severity.Error);
+            return false;
+        }
+        return true;
+    }
+    //ảnh
+    private string webRootPath;
+    private IBrowserFile selectedImage;
+    private string imageUrl;
+
+    private async Task HandleFileSelect(InputFileChangeEventArgs e)
+    {
+        selectedImage = e.File;
+
+        if (selectedImage != null)
+        {
+            var fileName = $"{DateTime.Now.Ticks}_{selectedImage.Name}";
+            var filePath = Path.Combine(webRootPath, "image/RoundImg", fileName);
+
+            using (var stream = new FileStream(filePath, FileMode.Create))
+            {
+                await selectedImage.OpenReadStream().CopyToAsync(stream);
+            }
+
+            imageUrl = $"/image/RoundImg/{fileName}";
+        }
+    }
+    private void Cancel()
+    {
+        MudDialog.Cancel();
+    }
+}

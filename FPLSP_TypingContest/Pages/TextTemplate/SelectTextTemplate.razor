@@ -1,0 +1,81 @@
+﻿@using FPLSP_TypingContest.Server.BLL.ViewModels.TextTemplate
+@using FPLSP_TypingContest.Repositories.Interfaces
+@using FPLSP_TypingContest.Server.BLL.ViewModels.LevelModel
+
+
+@if (_levels != null)
+{
+
+    <MudPaper Class="px-5 pt-5 pb-4 w-50" Elevation="3">
+
+        @*Tiêu đề*@
+        <div class="d-flex align-items-center mb-2">
+            <MudText Typo="Typo.h5" Class="mr-auto" Style="font-weight: 500;">Chọn mẫu văn bản</MudText>
+            <MudChip OnClick="OnClickCloseBtn" Icon="@Icons.Material.Filled.Close" Color="Color.Error">Đóng</MudChip>
+        </div>
+
+        @*Nội dung thân*@
+        <div class="row" style="overflow:auto; max-height: 50vh;">
+            <MudSelect Value="_levelName" ValueChanged="value=>ShowTextTemplate(value)" T="string" Label="Mẫu văn bản" AnchorOrigin="Origin.BottomCenter">
+                @foreach (var item in _levels)
+                {
+                    <MudSelectItem Value="@item.Name" />
+                }
+            </MudSelect>
+            @if (_textTemplates!=null)
+            {
+                int i = 1;
+                @foreach (var item in _textTemplates)
+                {
+                    <div class="d-flex align-items-center mb-2">
+                        <MudTextField Lines="3" Class="mr-auto" ReadOnly="true" @bind-Value="item.Content" Label=@($"Mẫu văn bản {i}") Variant="Variant.Text"></MudTextField>
+                        <MudChip OnClick="()=>SelectTempl(item.Id)" Color="Color.Primary">Chọn</MudChip>
+                    </div>
+                    i++;
+                }
+            }
+        </div>
+        @*Nội dung thân - End*@
+
+
+    </MudPaper>
+
+}
+
+@code {
+    [Inject] private ITextTemplateRespositories TextRepo { get; set; }
+    [Inject] private ILevelRespositories LevelRepo { get; set; }
+
+    List<LevelVM> _levels { get; set; }
+    List<TextTemplateVM> _textTemplates{ get; set; }
+    Guid _textTemplateId{ get; set; }
+    string _levelName{ get; set; }
+    [Parameter]
+    public EventCallback Close { get; set; }
+    [Parameter]
+    public EventCallback<Guid> Select { get; set; }
+    private void OnClickCloseBtn()
+    {
+        Close.InvokeAsync();
+    }
+    protected override async Task OnInitializedAsync()
+    {
+        _levels = await LevelRepo.GetAllActiveAsync();
+    }
+    private async Task ShowTextTemplate(string s)
+    {
+        _levelName = s;
+        var LevelId = _levels.FirstOrDefault(p => p.Name == s).Id;
+        _textTemplates = await TextRepo.GetAllByLevelIdAsync(LevelId);
+    }
+    private async Task SelectTempl(Guid id)
+    {
+        await Select.InvokeAsync(id);
+    }
+    /////////////////////
+    bool success;
+    string[] errors = { };
+    MudTextField<string> pwField1;
+    MudForm form;
+}
+

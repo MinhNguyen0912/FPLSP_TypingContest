@@ -1,0 +1,285 @@
+﻿@using FPLSP_TypingContest.Server.BLL.ViewModels.Contest;
+@using System.ComponentModel.DataAnnotations
+@using System.Reflection;
+@inject FPLSP_TypingContest.Repositories.Interfaces.IContestRespositories _Repositories;
+@inject IWebHostEnvironment _env;
+@inject ISnackbar Snackbar;
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@Icons.Material.Filled.Edit" Class="mr-3" /> @MudDialog?.Title
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+
+        <EditForm Model="@contestVM" OnValidSubmit="@OnValidSubmit">
+            <DataAnnotationsValidator />
+            <MudGrid>
+
+
+                <MudItem xs="12" sm="6" Class="d-flex justify-center p-4">
+
+                    <MudGrid>
+
+                        <MudItem xs="12">
+
+
+                            <MudContainer MaxWidth="MaxWidth.Small">
+
+
+                                <MudImage ObjectFit="ObjectFit.ScaleDown" Width="200" Height="200"
+                                          Src="@contestVM.ImageUrl"
+                                          Alt="Thumbnail Image" Elevation="25"
+                                          Class="rounded-lg mud-height-full mud-width-full m-auto" />
+
+
+                            </MudContainer>
+
+
+
+                        </MudItem>
+
+                        <MudItem xs="12">
+
+
+                            <MudFileUpload T="IBrowserFile" Accept="image/*" FilesChanged="UploadFile" Class="d-flex">
+                                <ButtonTemplate Context="ctext">
+                                    <MudButton HtmlTag="label"
+                                               Variant="Variant.Filled"
+                                               Color="Color.Primary"
+                                               StartIcon="@Icons.Material.Filled.CloudUpload"
+                                               for="@ctext">
+                                        Only image
+                                    </MudButton>
+                                </ButtonTemplate>
+                            </MudFileUpload>
+                            <MudTextField Class="mt-3" Label="@GetImageUrlDisplayName()" @bind-Value="@SelectedFileName"
+                                          For="@(() => contestVM.ImageUrl)" ReadOnly="true"
+                                          Variant="Variant.Outlined" Margin="Margin.Dense" />
+                        </MudItem>
+
+                    </MudGrid>
+
+
+
+                </MudItem>
+
+
+                <MudItem xs="12" sm="6">
+                    <MudGrid>
+
+
+
+                        <MudItem xs="12">
+                            <MudTextField Label="@GetNameDisplayName()" @bind-Value="@contestVM.Name"
+                                          For="@(() => contestVM.Name)" Required="true"
+                                          Variant="Variant.Outlined" Margin="Margin.Dense" />
+                        </MudItem>
+
+                        <MudItem xs="12">
+                            <MudTextField Label="@GetDescriptionDisplayName()" @bind-Value="@contestVM.Description"
+                                          For="@(() => contestVM.Description)" Required="true"
+                                          Variant="Variant.Outlined" Margin="Margin.Dense" Lines="3" />
+                        </MudItem>
+
+
+                        <MudItem xs="12" sm="6">
+                            <MudTextField T="DateTime" Label="@GetStartTimeDisplayName()" @bind-Value="@contestVM.StartTime"
+                                          For="@(() => contestVM.StartTime)" Format="s"
+                                          Variant="Variant.Outlined" InputType="InputType.DateTimeLocal" />
+
+                        </MudItem>
+                        <MudItem xs="12" sm="6">
+                            <MudTextField T="DateTime" Label="@GetEndTimeDisplayName()" @bind-Value="@contestVM.EndTime"
+                                          For="@(() => contestVM.EndTime)" Format="s"
+                                          Variant="Variant.Outlined" InputType="InputType.DateTimeLocal" />
+                        </MudItem>
+
+                        <MudItem xs="12">
+                            <MudSelect Label="@GetStatusDisplayName()" @bind-Value="@contestVM.Status"
+                                       For="@(() => contestVM.Status)"
+                                       Variant="Variant.Outlined" AnchorOrigin="Origin.BottomCenter">
+                                <MudSelectItem Value="0">Hoạt Động</MudSelectItem>
+                                <MudSelectItem Value="1">Không hoạt động</MudSelectItem>
+                            </MudSelect>
+                        </MudItem>
+
+                        <MudItem xs="12">
+                            @{
+                                var customAttributes = new Dictionary<string, object>
+                            {
+                            { "style", @"padding: 0.75rem 1.25rem;background-color: #f5c6cb;}"},
+                            };
+                            }
+
+                            <ValidationSummary AdditionalAttributes="customAttributes" />
+                        </MudItem>
+
+                        <MudItem xs="12">
+                            <div class="mt-4">
+                                <MudButton Variant="Variant.Text" Color="Color.Primary" ButtonType="ButtonType.Submit">Hoàn tất</MudButton>
+                                <MudButton OnClick="Cancel">Hủy bỏ</MudButton>
+                            </div>
+                        </MudItem>
+
+                    </MudGrid>
+                </MudItem>
+
+
+            </MudGrid>
+        </EditForm>
+
+
+
+    </DialogContent>
+</MudDialog>
+
+
+@code {
+
+    #region Parameter
+    [CascadingParameter] MudDialogInstance? MudDialog { get; set; }
+
+    [Parameter]
+    public Guid IdContest { get; set; }
+
+    [Parameter]
+    public Guid IdOrganizer { get; set; }
+
+    #endregion
+
+    #region Propreties
+    bool success;
+    private IBrowserFile? SelectedFile;
+    private string? SelectedFileName = "...\\no-thumbnail.jpg";
+    private ContestVM contestVM = new ContestVM()
+        {
+            ImageUrl = $"\\image\\ContestImg\\no-thumbnail.jpg",
+            StartTime = DateTime.Today,
+            EndTime = DateTime.Today.AddDays(1)
+        };
+    private ContestCreateVM createVM = new ContestCreateVM();
+    private ContestUpdateVM updateVM = new ContestUpdateVM();
+    #endregion
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (IdContest != Guid.Empty)
+        {
+            contestVM = await _Repositories.GetByIdAsync(IdContest);
+            SelectedFileName = "...\\" + Path.GetFileName(contestVM.ImageUrl) ?? string.Empty;
+        }
+    }
+
+    private async void OnValidSubmit(EditContext context)
+    {
+        StateHasChanged();
+
+        if (IdContest == Guid.Empty)
+        {
+            createVM.CreateBy = Guid.Parse("3FA85F64-5717-4562-B3FC-2C963F66AFA6");
+            createVM.IdOrganizer = IdOrganizer;
+            createVM.Name = contestVM.Name;
+            createVM.Description = contestVM.Description;
+            createVM.ImageUrl = contestVM.ImageUrl;
+            createVM.StartTime = contestVM.StartTime;
+            createVM.EndTime = contestVM.EndTime;
+            createVM.Status = contestVM.Status;
+
+            success = await _Repositories.AddAsync(createVM);
+        }
+        else
+        {
+            updateVM.ModifiedBy = Guid.Parse("3FA85F64-5717-4562-B3FC-2C963F66AFA6");
+            updateVM.IdOrganizer = IdOrganizer;
+            updateVM.Name = contestVM.Name;
+            updateVM.Description = contestVM.Description;
+            updateVM.ImageUrl = contestVM.ImageUrl;
+            updateVM.StartTime = contestVM.StartTime;
+            updateVM.EndTime = contestVM.EndTime;
+            updateVM.Status = contestVM.Status;
+
+            success = await _Repositories.UpdateAsync(IdContest, updateVM);
+        }
+        // Call your method to add the model to the database here
+        // and set the success variable to true if the adding was successful
+        //success = false;
+        MudDialog?.Close(DialogResult.Ok(success));
+    }
+
+    private void Cancel()
+    {
+        MudDialog?.Cancel();
+    }
+
+
+    #region Get DisplayName Attribute of Proprety
+    private string GetNameDisplayName()
+    {
+        var displayAttribute = typeof(ContestVM).GetProperty(nameof(ContestVM.Name))?.GetCustomAttribute<DisplayAttribute>();
+        return displayAttribute?.Name ?? nameof(ContestVM.Name);
+    }
+
+    private string GetDescriptionDisplayName()
+    {
+        var displayAttribute = typeof(ContestVM).GetProperty(nameof(ContestVM.Description))?.GetCustomAttribute<DisplayAttribute>();
+        return displayAttribute?.Name ?? nameof(ContestVM.Description);
+    }
+
+    private string GetImageUrlDisplayName()
+    {
+        var displayAttribute = typeof(ContestVM).GetProperty(nameof(ContestVM.ImageUrl))?.GetCustomAttribute<DisplayAttribute>();
+        return displayAttribute?.Name ?? nameof(ContestVM.ImageUrl);
+    }
+
+    private string GetStartTimeDisplayName()
+    {
+        var displayAttribute = typeof(ContestVM).GetProperty(nameof(ContestVM.StartTime))?.GetCustomAttribute<DisplayAttribute>();
+        return displayAttribute?.Name ?? nameof(ContestVM.StartTime);
+    }
+
+    private string GetEndTimeDisplayName()
+    {
+        var displayAttribute = typeof(ContestVM).GetProperty(nameof(ContestVM.EndTime))?.GetCustomAttribute<DisplayAttribute>();
+        return displayAttribute?.Name ?? nameof(ContestVM.EndTime);
+    }
+
+    private string GetStatusDisplayName()
+    {
+        var displayAttribute = typeof(ContestVM).GetProperty(nameof(ContestVM.Status))?.GetCustomAttribute<DisplayAttribute>();
+        return displayAttribute?.Name ?? nameof(ContestVM.Status);
+    }
+    #endregion
+
+
+    #region Upload Image to wwwRoot
+    private async Task UploadFile(IBrowserFile file)
+    {
+        if (file.ContentType.StartsWith("image/"))
+        {
+            // handle image file upload
+            SelectedFile = file;
+
+            if (SelectedFile != null)
+            {
+                SelectedFileName = "...\\" + SelectedFile.Name;
+                var fileName = $"{DateTime.Now.Ticks}_{SelectedFile.Name}";
+                var filePath = Path.Combine(_env.WebRootPath, "image/ContestImg", fileName);
+
+                using (var stream = new FileStream(filePath, FileMode.Create))
+                {
+                    await SelectedFile.OpenReadStream().CopyToAsync(stream);
+                }
+
+                contestVM.ImageUrl = $"\\image\\ContestImg\\{fileName}";
+            }
+        }
+        else
+        {
+            // handle invalid file type
+            Snackbar.Add("Loại tệp không hợp lệ. Vui lòng tải lên một tập tin hình ảnh.", Severity.Error);
+        }
+    }
+    #endregion
+}
